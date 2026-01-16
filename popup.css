@@ -142,7 +142,7 @@ body {
   width: 100%;
   padding: 8px 32px 8px 36px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 12px;
   font-size: 13px;
   background-color: var(--bg-input);
   color: var(--text-primary);
@@ -539,6 +539,7 @@ body {
   background-color: #854d0e;
   color: #fef9c3;
 }
+
 
 .tab-time-accumulated {
   font-size: 11px;
@@ -1210,6 +1211,43 @@ body.dark-mode .anchor-window .window-group-header:hover {
 body.dark-mode .anchor-badge {
   background-color: rgba(0, 150, 136, 0.2) !important;
   color: #4db6ac !important;
+}
+
+/* Recently Visited Window Group */
+.recently-closed-window,
+.recently-closed-window .window-group-header {
+  background-color: #f3f4f6;
+}
+
+body.dark-mode .recently-closed-window,
+body.dark-mode .recently-closed-window .window-group-header {
+  background-color: rgb(17, 17, 17);
+}
+
+.recently-closed-window {
+  border-left-color: #6b7280;
+}
+
+body.dark-mode .recently-closed-window {
+  border-left-color: #9ca3af;
+}
+
+.recently-closed-window .window-icon,
+.recently-closed-window .window-name {
+  color: #6b7280;
+}
+
+body.dark-mode .recently-closed-window .window-icon,
+body.dark-mode .recently-closed-window .window-name {
+  color: var(--text-secondary);
+}
+
+.recently-closed-window .window-group-header:hover {
+  background-color: #e5e7eb;
+}
+
+body.dark-mode .recently-closed-window .window-group-header:hover {
+  background-color: rgb(25, 25, 25);
 }
 
 /* Anchor button */

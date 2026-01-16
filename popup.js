@@ -871,6 +871,8 @@ function loadCurrentView() {
 function initInfiniteScroll() {
   const mainContent = document.querySelector('.main-content');
   mainContent.addEventListener('scroll', () => {
+    // Only load more history in 'all' view, not in 'windows' view
+    if (currentView === 'windows') return;
     if (isLoadingHistory || !hasMoreHistory) return;
 
     const { scrollTop, scrollHeight, clientHeight } = mainContent;
@@ -1176,6 +1178,12 @@ async function loadWindowsView() {
       tabList.appendChild(windowEl);
     });
 
+    // Add Recently Visited group at the bottom
+    const recentlyVisitedGroup = await createRecentlyVisitedGroup(windows);
+    if (recentlyVisitedGroup) {
+      tabList.appendChild(recentlyVisitedGroup);
+    }
+
     // Update stats
     updateStats(allTabs);
 
@@ -1468,6 +1476,121 @@ function createPinnedWindowGroup(pinnedTabs) {
   return windowGroup;
 }
 
+// Get recently visited items from history, filtering out currently open tabs
+async function getRecentlyVisitedItems(openWindows, limit = 5, searchQuery = '') {
+  // Collect all currently open tab URLs to exclude from history
+  const openTabUrls = new Set();
+  openWindows.forEach(window => {
+    (window.tabs || []).forEach(tab => {
+      openTabUrls.add(tab.url);
+    });
+  });
+
+  // Fetch recent history items using history API search
+  // The 'text' parameter searches both URL and title
+  const historyItems = await chrome.history.search({
+    text: searchQuery,
+    startTime: 0,
+    endTime: Date.now(),
+    maxResults: limit * 3  // Fetch extra to account for filtering open tabs
+  });
+
+  // Filter out currently open tabs and limit to requested count
+  return historyItems
+    .filter(item => !openTabUrls.has(item.url))
+    .slice(0, limit);
+}
+
+// Create a tab item for a recently visited history item
+function createRecentlyVisitedItem(historyItem) {
+  const tabItem = document.createElement('div');
+  tabItem.className = 'tab-item';
+
+  const lastVisited = historyItem.lastVisitTime
+    ? formatLastAccessed(historyItem.lastVisitTime)
+    : '';
+
+  const faviconUrl = getFaviconFromUrl(historyItem.url);
+
+  tabItem.innerHTML = `
+    <img class="tab-favicon" src="${faviconUrl}" alt="">
+    <span class="tab-title">${highlightSearchMatch(historyItem.title || 'Untitled')}</span>
+    <span class="tab-url">${highlightSearchMatch(truncateUrl(historyItem.url))}</span>
+    ${lastVisited ? `<span class="tab-last-accessed">${lastVisited}</span>` : ''}
+  `;
+
+  // Handle favicon loading errors
+  const faviconImg = tabItem.querySelector('.tab-favicon');
+  if (faviconImg) {
+    faviconImg.addEventListener('error', () => {
+      faviconImg.src = DEFAULT_FAVICON;
+    }, { once: true });
+  }
+
+  // Click handler - opens URL in new tab in current window
+  tabItem.addEventListener('click', async () => {
+    const currentWindow = await chrome.windows.getCurrent();
+    chrome.tabs.create({
+      url: historyItem.url,
+      windowId: currentWindow.id
+    });
+  });
+
+  return tabItem;
+}
+
+// Create the Recently Visited window group
+async function createRecentlyVisitedGroup(openWindows) {
+  // Pass search query to history API for searching
+  const items = await getRecentlyVisitedItems(openWindows, 5, currentSearchQuery || '');
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  const windowGroup = document.createElement('div');
+  windowGroup.className = 'window-group recently-closed-window';
+
+  const header = document.createElement('div');
+  header.className = 'window-group-header';
+  header.innerHTML = `
+    <div class="window-group-title">
+      <svg class="window-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg class="window-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 4.5V8L10.5 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="window-name">Recently Visited</span>
+    </div>
+    <div class="window-group-meta">
+      <span class="window-tab-count">${items.length} item${items.length !== 1 ? 's' : ''}</span>
+    </div>
+  `;
+
+  // Collapse/expand handler
+  header.addEventListener('click', () => {
+    windowGroup.classList.toggle('collapsed');
+  });
+
+  windowGroup.appendChild(header);
+
+  // Window content
+  const content = document.createElement('div');
+  content.className = 'window-group-content';
+
+  // Create tab items for each history item
+  items.forEach(item => {
+    const tabEl = createRecentlyVisitedItem(item);
+    content.appendChild(tabEl);
+  });
+
+  windowGroup.appendChild(content);
+
+  return windowGroup;
+}
+
 function organizeTabsByGroups(tabs, tabGroupMap, sortBy) {
   const ungroupedTabs = [];
   const groupedTabs = new Map();
@@ -1646,6 +1769,9 @@ function createTabItem(tab, isInGroup = false) {
 }
 
 async function loadMoreHistory() {
+  // Don't load history list in windows view - it has its own Recently Visited group
+  if (currentView === 'windows') return;
+
   const tabList = document.getElementById('tab-list');
 
   if (isLoadingHistory || !hasMoreHistory) return;
