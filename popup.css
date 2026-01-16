@@ -1568,6 +1568,111 @@ body.dark-mode .window-name {
   background-color: #b91c1c;
 }
 
+/* Welcome Modal Styles */
+.welcome-modal {
+  width: 360px;
+}
+
+.welcome-icon {
+  color: #9333ea;
+}
+
+body.dark-mode .welcome-icon {
+  color: #a855f7;
+}
+
+.welcome-modal-content {
+  margin-bottom: 16px;
+}
+
+.welcome-section {
+  margin-bottom: 16px;
+}
+
+.welcome-section:last-child {
+  margin-bottom: 0;
+}
+
+.welcome-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.welcome-list {
+  list-style: disc;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.welcome-list li {
+  margin-bottom: 4px;
+}
+
+.welcome-list li:last-child {
+  margin-bottom: 0;
+}
+
+.welcome-list-missing {
+  color: #6b7280;
+}
+
+.welcome-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.welcome-feature:last-child {
+  margin-bottom: 0;
+}
+
+.welcome-feature-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.welcome-feature-hint {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.welcome-feature-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.modal-btn-primary {
+  width: 100%;
+  background-color: #9333ea;
+  color: white;
+}
+
+.modal-btn-primary:hover {
+  background-color: #7e22ce;
+}
+
+body.dark-mode .modal-btn-primary {
+  background-color: #a855f7;
+}
+
+body.dark-mode .modal-btn-primary:hover {
+  background-color: #9333ea;
+}
+
 /* Multi-select Info Bar */
 .multi-select-info {
   position: fixed;

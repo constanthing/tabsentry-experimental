@@ -263,6 +263,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load and apply theme
   await loadTheme();
 
+  // Show welcome modal for first-time users
+  await initWelcomeModal();
+
   // Load showTimeAccumulated setting
   const savedShowTime = await db.getSetting('showTimeAccumulated');
   showTimeAccumulated = savedShowTime !== undefined ? savedShowTime : true;
@@ -414,9 +417,48 @@ async function initSmartOrganizerBanner() {
   });
 }
 
+// Initialize Welcome Modal for first-time users
+async function initWelcomeModal() {
+  const modal = document.getElementById('welcome-modal');
+  if (!modal) return;
+
+  // Check if user has already seen the welcome modal
+  const hasSeenWelcome = await db.getSetting('hasSeenWelcomeModal');
+  if (hasSeenWelcome) return;
+
+  // Show the modal
+  modal.classList.remove('hidden');
+
+  const dismissBtn = document.getElementById('welcome-dismiss');
+
+  const dismissModal = async () => {
+    modal.classList.add('hidden');
+    await db.setSetting('hasSeenWelcomeModal', true);
+  };
+
+  // Dismiss on button click
+  dismissBtn?.addEventListener('click', dismissModal);
+
+  // Dismiss on overlay click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      dismissModal();
+    }
+  });
+
+  // Dismiss on Escape key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      dismissModal();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+}
+
 async function loadTheme() {
   const savedTheme = await db.getSetting('theme');
-  const theme = savedTheme || 'light';
+  const theme = savedTheme || 'dark';
   if (theme === 'dark') {
     document.body.classList.add('dark-mode');
   } else {
