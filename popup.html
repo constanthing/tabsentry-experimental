@@ -108,6 +108,14 @@
       </div>
 
       <div class="header-right">
+        <button class="expand-btn" id="expand-btn" title="Open in full page">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 6V3C2 2.45 2.45 2 3 2H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M10 2H13C13.55 2 14 2.45 14 3V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M14 10V13C14 13.55 13.55 14 13 14H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M6 14H3C2.45 14 2 13.55 2 13V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
         <div class="dropdown-group">
           <div class="dropdown">
             <button class="dropdown-btn group-btn">
@@ -137,7 +145,7 @@
                 </svg>
                 <span>Windows</span>
               </a>
-              <!-- <a href="#" class="dropdown-item" data-view="bookmarked">
+              <a href="#" class="dropdown-item" data-view="bookmarked">
                 <svg class="menu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path
                     d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z"
@@ -152,7 +160,7 @@
                     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 <span>Nicknamed</span>
-              </a> -->
+              </a>
             </div>
           </div>
 
@@ -209,7 +217,7 @@
                   <path d="M10 12L12 14L14 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                     stroke-linejoin="round" />
                 </svg>
-                <span>Alphabetically (A-Z)</span>
+                <span>A-Z</span>
               </a>
               <a href="#" class="dropdown-item" data-sort="za">
                 <svg class="menu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -220,7 +228,7 @@
                   <path d="M10 8L12 6L14 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                     stroke-linejoin="round" />
                 </svg>
-                <span>Alphabetically (Z-A)</span>
+                <span>Z-A</span>
               </a>
             </div>
           </div>
@@ -271,13 +279,6 @@
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z"
                 stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-            </svg>
-          </button>
-          <button class="sub-header-icon-btn" id="show-recently-closed-btn" title="Show Recently Closed Windows">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" />
-              <path d="M8 4.5V8L10.5 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                stroke-linejoin="round" />
             </svg>
           </button>
         </div>
@@ -427,13 +428,6 @@
             </ul>
           </div>
           <div class="welcome-section">
-            <h4 class="welcome-section-title">Missing Features</h4>
-            <ul class="welcome-list welcome-list-missing">
-              <li>Views (Bookmarked, Nicknamed)</li>
-              <li>Context Menu</li>
-            </ul>
-          </div>
-          <div class="welcome-section">
             <h4 class="welcome-section-title">Miscellaneous Feature Testing</h4>
             <div class="welcome-feature">
               <span class="welcome-feature-name">Dragging Tabs</span>
@@ -444,10 +438,157 @@
               <span class="welcome-feature-hint"><kbd>↑</kbd><kbd>↓</kbd> navigate, <kbd>Enter</kbd> open,
                 <kbd>Esc</kbd> deselect</span>
             </div>
+            <div class="welcome-feature">
+              <span class="welcome-feature-name">Full Page</span>
+              <span class="welcome-feature-hint">Click expand button in header to open in full page</span>
+            </div>
           </div>
         </div>
         <div class="modal-actions">
           <button class="modal-btn modal-btn-primary" id="welcome-dismiss">Got it</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Context Menu Backdrop -->
+    <div id="context-menu-backdrop" class="context-menu-backdrop hidden"></div>
+
+    <!-- Tab Context Menu -->
+    <div id="tab-context-menu" class="tab-context-menu hidden">
+      <div class="context-menu-header">
+        <img class="context-menu-favicon" src="" alt="">
+        <div class="context-menu-info">
+          <div class="context-menu-title"></div>
+          <div class="context-menu-url"></div>
+        </div>
+        <button class="context-menu-close" id="context-menu-close">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-items">
+        <button class="context-menu-item" data-action="pin">
+          <svg class="context-menu-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M9.5 2L14 6.5L12 8.5L12.5 12.5L8 8L3.5 12.5L4 8.5L2 6.5L6.5 2L8 3.5L9.5 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+          <span>Pin</span>
+        </button>
+        <button class="context-menu-item" data-action="nickname">
+          <svg class="context-menu-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M13.5 8C13.5 10.5 11 13.5 8 13.5C5 13.5 2.5 10.5 2.5 8C2.5 5.5 5 2.5 8 2.5H12.5L10 5H8C6.34315 5 5 6.34315 5 8C5 9.65685 6.34315 11 8 11C9.65685 11 11 9.65685 11 8V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Nickname</span>
+        </button>
+        <button class="context-menu-item" data-action="bookmark">
+          <svg class="context-menu-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+          <span>Bookmark</span>
+        </button>
+        <button class="context-menu-item has-submenu" data-action="move">
+          <svg class="context-menu-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M2 6V3C2 2.44772 2.44772 2 3 2H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M10 2H13C13.5523 2 14 2.44772 14 3V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M14 10V13C14 13.5523 13.5523 14 13 14H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M6 14H3C2.44772 14 2 13.5523 2 13V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>Move to Window</span>
+          <svg class="context-menu-chevron" width="10" height="10" viewBox="0 0 12 12" fill="none">
+            <path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item context-menu-item-danger" data-action="close">
+          <svg class="context-menu-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>Close Tab</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Move Submenu -->
+    <div id="move-submenu" class="move-submenu hidden">
+      <!-- Dynamically populated with window list -->
+    </div>
+
+    <!-- Nickname Modal -->
+    <div id="nickname-modal" class="modal-overlay hidden">
+      <div class="modal nickname-modal">
+        <div class="modal-header">
+          <svg class="modal-icon nickname-modal-icon" width="24" height="24" viewBox="0 0 16 16" fill="none">
+            <path d="M13.5 8C13.5 10.5 11 13.5 8 13.5C5 13.5 2.5 10.5 2.5 8C2.5 5.5 5 2.5 8 2.5H12.5L10 5H8C6.34315 5 5 6.34315 5 8C5 9.65685 6.34315 11 8 11C9.65685 11 11 9.65685 11 8V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3 class="modal-title">Set Nickname</h3>
+        </div>
+        <div class="nickname-modal-content">
+          <div class="nickname-tab-info">
+            <img id="nickname-modal-favicon" class="nickname-modal-favicon" src="" alt="">
+            <span id="nickname-modal-tab-title" class="nickname-modal-tab-title"></span>
+          </div>
+          <input type="text" id="nickname-input" class="nickname-input" placeholder="Enter a nickname...">
+          <p class="nickname-hint">Leave empty to remove nickname</p>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn-cancel" id="nickname-cancel">Cancel</button>
+          <button class="modal-btn modal-btn-primary" id="nickname-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Window Name Modal -->
+    <div id="new-window-modal" class="modal-overlay hidden">
+      <div class="modal new-window-modal">
+        <div class="modal-header">
+          <svg class="modal-icon" width="24" height="24" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 6V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M6 8H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <h3 class="modal-title">New Window</h3>
+        </div>
+        <div class="new-window-modal-content">
+          <input type="text" id="new-window-name-input" class="new-window-name-input" placeholder="Window name (optional)...">
+          <div class="new-window-tabs-section">
+            <div class="new-window-tabs-header">
+              <span class="new-window-tabs-label">Tabs to move:</span>
+              <span id="new-window-tabs-count" class="new-window-tabs-count">1 tab</span>
+            </div>
+            <div id="new-window-tabs-list" class="new-window-tabs-list"></div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn-cancel" id="new-window-cancel">Cancel</button>
+          <button class="modal-btn modal-btn-primary" id="new-window-confirm">Create Window</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Windows Modal -->
+    <div id="saved-windows-modal" class="modal-overlay hidden">
+      <div class="modal saved-windows-modal">
+        <div class="modal-header">
+          <svg class="modal-icon" width="24" height="24" viewBox="0 0 16 16" fill="none">
+            <path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z"
+              stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+          </svg>
+          <h3 class="modal-title">Saved Windows</h3>
+          <button class="modal-close-btn" id="saved-windows-close">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="saved-windows-list" id="saved-windows-list">
+          <!-- Saved windows will be rendered here -->
+        </div>
+        <div class="saved-windows-empty hidden" id="saved-windows-empty">
+          <p>No saved windows yet.</p>
+          <p class="text-muted">Click the bookmark icon on any window to save it.</p>
         </div>
       </div>
     </div>

@@ -83,6 +83,76 @@ export default class DB {
             anchorWindow: "++id, windowTitle, tabs, tabGroups, createdAt, updatedAt"
         });
 
+        this.db.version(8).stores({
+            openTabs: "id, windowId, sessionId, isOrphan, title, url, faviconUrl, lastAccessed, timeAccumulated, index, groupId, pinned",
+            openWindows: "id, sessionId, isOrphan, title, urlSignature, createdAt, lastAccessed",
+            tabGroups: "id, windowId, sessionId, isOrphan, title, color, collapsed",
+            sessions: "++id, startedAt, active",
+            settings: "++id, title, value",
+            filters: "++id, name, property, operator, value, smartWindowAction, createdAt, updatedAt",
+            automovedTabs: "++id, tabId, url, title, favicon, targetWindow, movedAt",
+            anchorWindow: "++id, windowTitle, tabs, tabGroups, createdAt, updatedAt",
+            autoclosedTabs: "++id, url, title, favIconUrl, closedAt, timeAccumulated"
+        });
+
+        this.db.version(9).stores({
+            openTabs: "id, windowId, sessionId, isOrphan, title, url, faviconUrl, lastAccessed, timeAccumulated, index, groupId, pinned",
+            openWindows: "id, sessionId, isOrphan, title, urlSignature, createdAt, lastAccessed",
+            tabGroups: "id, windowId, sessionId, isOrphan, title, color, collapsed",
+            sessions: "++id, startedAt, active",
+            settings: "++id, title, value",
+            filters: "++id, name, property, operator, value, smartWindowAction, createdAt, updatedAt",
+            automovedTabs: "++id, tabId, url, title, favicon, targetWindow, movedAt",
+            anchorWindow: "++id, windowTitle, tabs, tabGroups, createdAt, updatedAt",
+            autoclosedTabs: "++id, url, title, favIconUrl, closedAt, timeAccumulated",
+            tabNicknames: "tabId, nickname, url"
+        });
+
+        this.db.version(10).stores({
+            openTabs: "id, windowId, sessionId, isOrphan, title, url, faviconUrl, lastAccessed, timeAccumulated, index, groupId, pinned",
+            openWindows: "id, sessionId, isOrphan, title, urlSignature, createdAt, lastAccessed",
+            tabGroups: "id, windowId, sessionId, isOrphan, title, color, collapsed",
+            sessions: "++id, startedAt, active",
+            settings: "++id, title, value",
+            filters: "++id, name, property, operator, value, smartWindowAction, createdAt, updatedAt",
+            automovedTabs: "++id, tabId, url, title, favicon, targetWindow, movedAt",
+            anchorWindow: "++id, windowTitle, tabs, tabGroups, createdAt, updatedAt",
+            autoclosedTabs: "++id, url, title, favIconUrl, closedAt, timeAccumulated",
+            tabNicknames: "tabId, nickname, url",
+            nicknames: "url, nickname"
+        });
+
+        this.db.version(11).stores({
+            openTabs: "id, windowId, sessionId, isOrphan, title, url, faviconUrl, lastAccessed, timeAccumulated, index, groupId, pinned",
+            openWindows: "id, sessionId, isOrphan, title, urlSignature, createdAt, lastAccessed",
+            tabGroups: "id, windowId, sessionId, isOrphan, title, color, collapsed",
+            sessions: "++id, startedAt, active",
+            settings: "++id, title, value",
+            filters: "++id, name, property, operator, value, smartWindowAction, createdAt, updatedAt",
+            automovedTabs: "++id, tabId, url, title, favicon, targetWindow, movedAt",
+            anchorWindow: "++id, windowTitle, tabs, tabGroups, createdAt, updatedAt",
+            autoclosedTabs: "++id, url, title, favIconUrl, closedAt, timeAccumulated",
+            tabNicknames: "tabId, nickname, url",
+            nicknames: "url, nickname",
+            bookmarks: "url, bookmarkId, title, parentId, folderPath, dateAdded"
+        });
+
+        this.db.version(12).stores({
+            openTabs: "id, windowId, sessionId, isOrphan, title, url, faviconUrl, lastAccessed, timeAccumulated, index, groupId, pinned",
+            openWindows: "id, sessionId, isOrphan, title, urlSignature, createdAt, lastAccessed",
+            tabGroups: "id, windowId, sessionId, isOrphan, title, color, collapsed",
+            sessions: "++id, startedAt, active",
+            settings: "++id, title, value",
+            filters: "++id, name, property, operator, value, smartWindowAction, createdAt, updatedAt",
+            automovedTabs: "++id, tabId, url, title, favicon, targetWindow, movedAt",
+            anchorWindow: "++id, windowTitle, tabs, tabGroups, createdAt, updatedAt",
+            autoclosedTabs: "++id, url, title, favIconUrl, closedAt, timeAccumulated",
+            tabNicknames: "tabId, nickname, url",
+            nicknames: "url, nickname",
+            bookmarks: "url, bookmarkId, title, parentId, folderPath, dateAdded",
+            savedWindows: "++id, name, tabs, tabGroups, savedAt"
+        });
+
         this.db.open();
         return this;
     }
@@ -352,5 +422,121 @@ export default class DB {
 
     async clearAnchorWindow() {
         return await this.db.anchorWindow.clear();
+    }
+
+    // Autoclosed tabs methods
+    async addAutoclosedTab(data) {
+        return await this.db.autoclosedTabs.add({
+            ...data,
+            closedAt: Date.now()
+        });
+    }
+
+    async getAutoclosedTabs() {
+        return await this.db.autoclosedTabs.toArray();
+    }
+
+    async getAutoclosedTabsSince(timestamp) {
+        return await this.db.autoclosedTabs.where("closedAt").aboveOrEqual(timestamp).toArray();
+    }
+
+    async clearAutoclosedTabs() {
+        return await this.db.autoclosedTabs.clear();
+    }
+
+    // Tab Nicknames methods
+    async getTabNickname(tabId) {
+        return await this.db.tabNicknames.get(tabId);
+    }
+
+    async setTabNickname(tabId, nickname, url) {
+        return await this.db.tabNicknames.put({
+            tabId,
+            nickname,
+            url
+        });
+    }
+
+    async removeTabNickname(tabId) {
+        return await this.db.tabNicknames.delete(tabId);
+    }
+
+    async getAllTabNicknames() {
+        return await this.db.tabNicknames.toArray();
+    }
+
+    // Nicknames methods (URL-based)
+    async getNickname(url) {
+        return await this.db.nicknames.get(url);
+    }
+
+    async setNickname(url, nickname) {
+        return await this.db.nicknames.put({ url, nickname });
+    }
+
+    async removeNickname(url) {
+        return await this.db.nicknames.delete(url);
+    }
+
+    async getAllNicknames() {
+        if (!this.db.nicknames) {
+            return [];
+        }
+        return await this.db.nicknames.toArray();
+    }
+
+    // Bookmarks methods
+    async getAllBookmarks() {
+        return await this.db.bookmarks.toArray();
+    }
+
+    async getBookmark(url) {
+        return await this.db.bookmarks.get(url);
+    }
+
+    async addBookmark(data) {
+        return await this.db.bookmarks.put(data);
+    }
+
+    async removeBookmark(url) {
+        return await this.db.bookmarks.delete(url);
+    }
+
+    async clearBookmarks() {
+        return await this.db.bookmarks.clear();
+    }
+
+    async syncBookmarks(bookmarksArray) {
+        return await this.db.transaction('rw', this.db.bookmarks, async () => {
+            await this.db.bookmarks.clear();
+            await this.db.bookmarks.bulkPut(bookmarksArray);
+        });
+    }
+
+    // Saved Windows methods
+    async getAllSavedWindows() {
+        if (!this.db.savedWindows) {
+            return [];
+        }
+        return await this.db.savedWindows.toArray();
+    }
+
+    async getSavedWindow(id) {
+        return await this.db.savedWindows.get(id);
+    }
+
+    async addSavedWindow(data) {
+        return await this.db.savedWindows.add({
+            ...data,
+            savedAt: Date.now()
+        });
+    }
+
+    async updateSavedWindow(id, data) {
+        return await this.db.savedWindows.update(id, data);
+    }
+
+    async deleteSavedWindow(id) {
+        return await this.db.savedWindows.delete(id);
     }
 }

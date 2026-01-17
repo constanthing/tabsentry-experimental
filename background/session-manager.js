@@ -7,6 +7,7 @@ export class SessionManager {
         this.urlMatcher = new URLMatcher();
         this.currentSessionId = null;
         this.restoringTabIds = new Map();
+        this.isInitialized = false;
     }
 
     markTabAsRestoring(tabId) {
@@ -30,6 +31,12 @@ export class SessionManager {
     async initialize() {
         const detection = await this.detectBrowserRestart();
         console.log("[TabSentry] Browser restart detection:", detection);
+
+        // No normal windows open (e.g., profile picker only) - defer initialization
+        if (detection.reason === 'no_normal_windows') {
+            console.log("[TabSentry] Deferring initialization until normal window opens");
+            return;
+        }
 
         if (detection.isRestart) {
             console.log("[TabSentry] Browser restart detected, performing recovery...");
@@ -69,6 +76,9 @@ export class SessionManager {
         // Always check anchor window - regardless of restart detection
         // This handles cases where restart wasn't detected but anchor should still be restored
         await this.restoreAnchorWindowIfNeeded();
+
+        // Mark as initialized
+        this.isInitialized = true;
     }
 
     async syncCurrentBrowserState() {
@@ -205,20 +215,19 @@ export class SessionManager {
         return this.currentSessionId;
     }
 
-    async waitForBrowserWindow() {
-        // Wait for at least one browser window to exist
-        let browserWindows = await chrome.windows.getAll();
-        let attempts = 0;
-        const maxAttempts = 50; // 5 seconds max wait
-
-        while (browserWindows.length === 0 && attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            browserWindows = await chrome.windows.getAll();
-            attempts++;
+    async waitForBrowserWindow(retries = 50, delay = 100) {
+        // Wait for at least one normal browser window to exist
+        // (filters out profile picker, devtools, popup windows, etc.)
+        for (let i = 0; i < retries; i++) {
+            const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+            if (windows.length > 0) {
+                console.log("[TabSentry] Waited for normal browser windows:", i * delay, "ms, found:", windows.length);
+                return windows;
+            }
+            await new Promise(resolve => setTimeout(resolve, delay));
         }
-
-        console.log("[TabSentry] Waited for browser windows:", attempts * 100, "ms, found:", browserWindows.length);
-        return browserWindows;
+        console.log("[TabSentry] No normal browser windows found after", retries * delay, "ms");
+        return []; // Return empty if no normal windows found
     }
 
     async detectBrowserRestart() {
@@ -232,13 +241,13 @@ export class SessionManager {
             return { isRestart: false };
         }
 
-        // Wait for and get current browser windows
+        // Wait for and get current browser windows (normal windows only)
         const browserWindows = await this.waitForBrowserWindow();
 
-        // If still no windows, can't do recovery
+        // No normal windows open - skip recovery (e.g., profile picker only)
         if (browserWindows.length === 0) {
-            console.log("[TabSentry] No browser windows available, skipping restart detection");
-            return { isRestart: false };
+            console.log("[TabSentry] No normal windows detected, skipping recovery");
+            return { isRestart: false, reason: 'no_normal_windows' };
         }
 
         const browserWindowIds = new Set(browserWindows.map(w => w.id));

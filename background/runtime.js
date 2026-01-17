@@ -244,6 +244,269 @@ export function registerRuntimeListeners(db, sessionManager) {
             })();
             return true;
         }
+
+        // Tab Nicknames message handlers
+        if (message.type === "GET_TAB_NICKNAME") {
+            (async () => {
+                try {
+                    const result = await db.getTabNickname(message.tabId);
+                    sendResponse({ success: true, nickname: result?.nickname || null });
+                } catch (error) {
+                    console.error("[TabSentry] GET_TAB_NICKNAME error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "SET_TAB_NICKNAME") {
+            (async () => {
+                try {
+                    await db.setTabNickname(message.tabId, message.nickname, message.url);
+                    sendResponse({ success: true });
+                } catch (error) {
+                    console.error("[TabSentry] SET_TAB_NICKNAME error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "REMOVE_TAB_NICKNAME") {
+            (async () => {
+                try {
+                    await db.removeTabNickname(message.tabId);
+                    sendResponse({ success: true });
+                } catch (error) {
+                    console.error("[TabSentry] REMOVE_TAB_NICKNAME error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        // URL-based Nicknames message handlers
+        if (message.type === "GET_NICKNAME") {
+            (async () => {
+                try {
+                    const result = await db.getNickname(message.url);
+                    sendResponse({ success: true, nickname: result?.nickname || null });
+                } catch (error) {
+                    console.error("[TabSentry] GET_NICKNAME error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "SET_NICKNAME") {
+            (async () => {
+                try {
+                    await db.setNickname(message.url, message.nickname);
+                    sendResponse({ success: true });
+                } catch (error) {
+                    console.error("[TabSentry] SET_NICKNAME error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "REMOVE_NICKNAME") {
+            (async () => {
+                try {
+                    await db.removeNickname(message.url);
+                    sendResponse({ success: true });
+                } catch (error) {
+                    console.error("[TabSentry] REMOVE_NICKNAME error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "GET_ALL_NICKNAMES") {
+            (async () => {
+                try {
+                    const nicknames = await db.getAllNicknames();
+                    sendResponse({ success: true, nicknames });
+                } catch (error) {
+                    console.error("[TabSentry] GET_ALL_NICKNAMES error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        // Saved Windows message handlers
+        if (message.type === "SAVE_WINDOW") {
+            console.log("[TabSentry] SAVE_WINDOW handler triggered for window:", message.windowId);
+            (async () => {
+                try {
+                    const windowId = message.windowId;
+
+                    // Get current window tabs
+                    const tabs = await chrome.tabs.query({ windowId });
+                    console.log("[TabSentry] Got tabs:", tabs.length);
+
+                    // Get tab groups (may not be available in all browsers)
+                    let tabGroups = [];
+                    try {
+                        if (chrome.tabGroups) {
+                            tabGroups = await chrome.tabGroups.query({ windowId });
+                        }
+                    } catch (e) {
+                        console.log("[TabSentry] Tab groups not available:", e);
+                    }
+
+                    // Get window title from DB
+                    const windowData = await db.getWindow(windowId);
+                    const windowTitle = windowData?.title || `Window ${windowId}`;
+
+                    // Build tabs snapshot
+                    const tabsSnapshot = tabs.map(tab => ({
+                        url: tab.url || tab.pendingUrl || "",
+                        title: tab.title || "",
+                        favIconUrl: tab.favIconUrl || "",
+                        index: tab.index,
+                        pinned: tab.pinned || false,
+                        groupId: tab.groupId || -1
+                    }));
+
+                    // Build tab groups snapshot
+                    const tabGroupsSnapshot = tabGroups.map(g => ({
+                        id: g.id,
+                        title: g.title || "",
+                        color: g.color,
+                        collapsed: g.collapsed
+                    }));
+
+                    // Save to database
+                    const id = await db.addSavedWindow({
+                        name: windowTitle,
+                        tabs: tabsSnapshot,
+                        tabGroups: tabGroupsSnapshot
+                    });
+
+                    sendResponse({ success: true, id });
+                } catch (error) {
+                    console.error("[TabSentry] SAVE_WINDOW error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "GET_SAVED_WINDOWS") {
+            console.log("[TabSentry] GET_SAVED_WINDOWS handler triggered");
+            (async () => {
+                try {
+                    const savedWindows = await db.getAllSavedWindows();
+                    console.log("[TabSentry] Found saved windows:", savedWindows.length, savedWindows);
+                    sendResponse({ success: true, savedWindows });
+                } catch (error) {
+                    console.error("[TabSentry] GET_SAVED_WINDOWS error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "DELETE_SAVED_WINDOW") {
+            (async () => {
+                try {
+                    await db.deleteSavedWindow(message.savedWindowId);
+                    sendResponse({ success: true });
+                } catch (error) {
+                    console.error("[TabSentry] DELETE_SAVED_WINDOW error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "RESTORE_SAVED_WINDOW") {
+            (async () => {
+                try {
+                    const savedWindow = await db.getSavedWindow(message.savedWindowId);
+                    if (!savedWindow) {
+                        sendResponse({ success: false, error: "Saved window not found" });
+                        return;
+                    }
+
+                    // Create new window with the first tab
+                    const firstTab = savedWindow.tabs[0];
+                    const newWindow = await chrome.windows.create({
+                        url: firstTab?.url || "chrome://newtab",
+                        focused: true
+                    });
+
+                    // Create remaining tabs
+                    const tabIdMap = new Map(); // Maps old groupId to array of new tab ids
+                    for (let i = 1; i < savedWindow.tabs.length; i++) {
+                        const tabData = savedWindow.tabs[i];
+                        const newTab = await chrome.tabs.create({
+                            windowId: newWindow.id,
+                            url: tabData.url,
+                            pinned: tabData.pinned,
+                            index: tabData.index
+                        });
+
+                        // Track tabs by their original groupId for group recreation
+                        if (tabData.groupId && tabData.groupId !== -1) {
+                            if (!tabIdMap.has(tabData.groupId)) {
+                                tabIdMap.set(tabData.groupId, []);
+                            }
+                            tabIdMap.get(tabData.groupId).push(newTab.id);
+                        }
+                    }
+
+                    // Handle first tab's group membership
+                    if (firstTab?.groupId && firstTab.groupId !== -1) {
+                        const firstTabId = (await chrome.tabs.query({ windowId: newWindow.id }))[0].id;
+                        if (!tabIdMap.has(firstTab.groupId)) {
+                            tabIdMap.set(firstTab.groupId, []);
+                        }
+                        tabIdMap.get(firstTab.groupId).unshift(firstTabId);
+                    }
+
+                    // Recreate tab groups
+                    for (const savedGroup of savedWindow.tabGroups) {
+                        const tabIds = tabIdMap.get(savedGroup.id);
+                        if (tabIds && tabIds.length > 0) {
+                            const groupId = await chrome.tabs.group({
+                                tabIds,
+                                createProperties: { windowId: newWindow.id }
+                            });
+                            await chrome.tabGroups.update(groupId, {
+                                title: savedGroup.title,
+                                color: savedGroup.color,
+                                collapsed: savedGroup.collapsed
+                            });
+                        }
+                    }
+
+                    sendResponse({ success: true, windowId: newWindow.id });
+                } catch (error) {
+                    console.error("[TabSentry] RESTORE_SAVED_WINDOW error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
+
+        if (message.type === "UPDATE_SAVED_WINDOW") {
+            (async () => {
+                try {
+                    await db.updateSavedWindow(message.savedWindowId, { name: message.name });
+                    sendResponse({ success: true });
+                } catch (error) {
+                    console.error("[TabSentry] UPDATE_SAVED_WINDOW error:", error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
+        }
     });
 
     // Sync on install/update (for extension updates)

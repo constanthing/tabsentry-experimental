@@ -6,6 +6,7 @@ export class TimeTracker {
         this.lastActiveTime = null;
         this.isWindowFocused = true;
         this.onTimeFlush = null;
+        this.isInitialized = false;
     }
 
     setOnTimeFlush(callback) {
@@ -24,6 +25,8 @@ export class TimeTracker {
         // Check if any window is focused
         const focusedWindow = await chrome.windows.getLastFocused();
         this.isWindowFocused = focusedWindow.focused;
+
+        this.isInitialized = true;
     }
 
     async onTabActivated(tabId, windowId) {

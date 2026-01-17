@@ -19,25 +19,6 @@ async function initTheme() {
   }
 }
 
-// Get autoclosed tabs from storage
-async function getAutoclosedTabs() {
-  try {
-    const result = await chrome.storage.local.get(['autoclosedTabs']);
-    return result.autoclosedTabs || [];
-  } catch (e) {
-    console.log('Error getting autoclosed tabs:', e);
-    return [];
-  }
-}
-
-// Save autoclosed tabs to storage
-async function saveAutoclosedTabs(tabs) {
-  try {
-    await chrome.storage.local.set({ autoclosedTabs: tabs });
-  } catch (e) {
-    console.log('Error saving autoclosed tabs:', e);
-  }
-}
 
 // Format relative time
 function formatRelativeTime(timestamp) {
@@ -368,7 +349,7 @@ async function init() {
   });
 
   // Load data
-  const tabs = await getAutoclosedTabs();
+  const tabs = await db.getAutoclosedTabs();
 
   // Update statistics
   const stats = calculateStats(tabs);
@@ -403,7 +384,7 @@ async function init() {
   // Clear all button
   document.getElementById('clear-all-btn').addEventListener('click', async () => {
     if (confirm('Are you sure you want to clear all autoclosed tabs history?')) {
-      await saveAutoclosedTabs([]);
+      await db.clearAutoclosedTabs();
       renderTabsList([]);
       updateStats({ total: 0, today: 0, week: 0 });
       updateLineChart();

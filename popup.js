@@ -32,10 +32,33 @@ const CHATS_FILTER = {
 };
 let showTimeAccumulated = true;
 let tabTimeData = new Map(); // Map of tabId -> timeAccumulated
+let nicknamesMap = new Map(); // Map of url -> nickname
+let bookmarkedUrls = new Set(); // Set of bookmarked URLs
 let pinnedOnTop = false; // Whether to show pinned tabs at the top in All Tabs view
 let currentSearchQuery = ''; // Current search query for filtering tabs
 let selectedTabIndex = -1; // Currently selected tab index for keyboard navigation
 let selectedTabs = new Set(); // Set of selected tab IDs for multi-select drag
+
+// Context menu state
+let contextMenuTabId = null;
+let contextMenuTabData = null;
+
+// New window modal state
+let newWindowTabsToMove = [];
+
+// Get tabs to move - respects multi-selection
+function getTabsToMove() {
+  if (selectedTabs.size > 0 && selectedTabs.has(contextMenuTabId)) {
+    return Array.from(selectedTabs);
+  }
+  return [contextMenuTabId];
+}
+
+// Get tab data for multiple tab IDs
+async function getTabDataForIds(tabIds) {
+  const tabs = await chrome.tabs.query({});
+  return tabs.filter(tab => tabIds.includes(tab.id));
+}
 
 // Chrome tab group colors mapping
 const TAB_GROUP_COLORS = {
@@ -292,6 +315,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSearch();
   initKeyboardNavigation();
   initSmartOrganizerBanner();
+  initContextMenu();
+  initExpandButton();
 
   // Focus search input by default
   const searchInput = document.querySelector('.search-input');
@@ -343,7 +368,6 @@ function initWindowsViewButtons() {
   const expandAllBtn = document.getElementById('expand-all-btn');
   const showPinnedBtn = document.getElementById('show-pinned-btn');
   const showSavedBtn = document.getElementById('show-saved-btn');
-  const showRecentlyClosedBtn = document.getElementById('show-recently-closed-btn');
 
   // Collapse All windows
   collapseAllBtn?.addEventListener('click', () => {
@@ -376,17 +400,11 @@ function initWindowsViewButtons() {
     }
   });
 
-  // Show Saved Windows (placeholder - could show bookmarked/saved sessions)
-  showSavedBtn?.addEventListener('click', () => {
-    // TODO: Implement saved windows functionality
-    console.log('[TabSentry] Show Saved Windows clicked');
+  // Show Saved Windows
+  showSavedBtn?.addEventListener('click', async () => {
+    await showSavedWindowsModal();
   });
 
-  // Show Recently Closed Windows
-  showRecentlyClosedBtn?.addEventListener('click', async () => {
-    // TODO: Implement recently closed windows functionality
-    console.log('[TabSentry] Show Recently Closed Windows clicked');
-  });
 }
 
 // Initialize Smart Window Organizer banner
@@ -472,6 +490,81 @@ async function loadTabTimeData() {
   allDbTabs.forEach(tab => {
     tabTimeData.set(tab.id, tab.timeAccumulated || 0);
   });
+}
+
+async function loadNicknames() {
+  nicknamesMap.clear();
+  try {
+    const nicknames = await db.getAllNicknames();
+    if (nicknames && nicknames.length > 0) {
+      nicknames.forEach(item => {
+        nicknamesMap.set(item.url, item.nickname);
+      });
+    }
+  } catch (error) {
+    console.error('[TabSentry] Failed to load nicknames:', error);
+  }
+}
+
+async function loadBookmarkedUrls() {
+  bookmarkedUrls.clear();
+  try {
+    const bookmarks = await chrome.bookmarks.search({});
+    bookmarks.forEach(bookmark => {
+      if (bookmark.url) {
+        bookmarkedUrls.add(bookmark.url);
+      }
+    });
+  } catch (error) {
+    console.error('[TabSentry] Failed to load bookmarks:', error);
+  }
+}
+
+// Sync all Chrome bookmarks to the database with folder paths
+async function syncBookmarksToDatabase() {
+  try {
+    const tree = await chrome.bookmarks.getTree();
+    const bookmarksArray = [];
+
+    // Recursively traverse bookmark tree
+    function traverseNode(node, folderPath = '') {
+      if (node.url) {
+        // This is a bookmark (not a folder)
+        bookmarksArray.push({
+          url: node.url,
+          bookmarkId: node.id,
+          title: node.title || '',
+          parentId: node.parentId || '',
+          folderPath: folderPath,
+          dateAdded: node.dateAdded || Date.now()
+        });
+      }
+
+      if (node.children) {
+        // This is a folder - traverse children
+        const newPath = node.title
+          ? (folderPath ? `${folderPath}/${node.title}` : node.title)
+          : folderPath;
+
+        for (const child of node.children) {
+          traverseNode(child, newPath);
+        }
+      }
+    }
+
+    // Start traversal from root nodes
+    for (const root of tree) {
+      traverseNode(root, '');
+    }
+
+    // Sync to database
+    await db.syncBookmarks(bookmarksArray);
+    console.log(`[TabSentry] Synced ${bookmarksArray.length} bookmarks to database`);
+    return bookmarksArray;
+  } catch (error) {
+    console.error('[TabSentry] Failed to sync bookmarks:', error);
+    return [];
+  }
 }
 
 function formatTimeAccumulated(ms) {
@@ -702,6 +795,17 @@ function initChatButton() {
   });
 }
 
+// Expand button - opens full page manager
+function initExpandButton() {
+  const expandBtn = document.getElementById('expand-btn');
+  if (!expandBtn) return;
+
+  expandBtn.addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('manager.html') });
+    window.close();
+  });
+}
+
 // Filter matching logic (simplified version for popup)
 function normalizeUrl(url) {
   if (!url) return '';
@@ -861,6 +965,12 @@ function loadCurrentView() {
     case 'windows':
       loadWindowsView();
       break;
+    case 'bookmarked':
+      loadBookmarkedView();
+      break;
+    case 'nicknamed':
+      loadNicknamedView();
+      break;
     case 'all':
     default:
       loadTabs();
@@ -917,6 +1027,12 @@ async function loadTabs() {
       await loadTabTimeData();
     }
 
+    // Load nicknames
+    await loadNicknames();
+
+    // Load bookmarked URLs
+    await loadBookmarkedUrls();
+
     let tabs = await chrome.tabs.query({});
 
     // Store open tab URLs to prevent duplicates in history
@@ -958,9 +1074,26 @@ async function loadTabs() {
         ? '<svg class="pin-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M9.5 2L14 6.5L12 8.5L12.5 12.5L8 8L3.5 12.5L4 8.5L2 6.5L6.5 2L8 3.5L9.5 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
         : '';
 
+      const isBookmarked = bookmarkedUrls.has(tab.url);
+      const bookmarkIconHtml = isBookmarked
+        ? '<svg class="bookmark-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+        : '';
+
+      const audibleIconHtml = tab.audible
+        ? '<svg class="audible-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 3L4 6H2V10H4L8 13V3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M11 5.5C11.8 6.3 12 7.1 12 8C12 8.9 11.8 9.7 11 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 3.5C14.3 4.8 15 6.4 15 8C15 9.6 14.3 11.2 13 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+        : '';
+
+      const nickname = nicknamesMap.get(tab.url);
+      const nicknameHtml = nickname
+        ? `<span class="tab-nickname">${highlightSearchMatch(nickname)}</span>`
+        : '';
+
       tabItem.innerHTML = `
         ${pinIconHtml}
+        ${bookmarkIconHtml}
+        ${audibleIconHtml}
         <img class="tab-favicon" src="${favicon}" alt="">
+        ${nicknameHtml}
         <span class="tab-title">${highlightSearchMatch(tab.title || 'Untitled')}</span>
         <span class="tab-url">${highlightSearchMatch(truncateUrl(tab.url))}</span>
         ${timeAccumulatedHtml}
@@ -977,6 +1110,11 @@ async function loadTabs() {
         chrome.windows.update(tab.windowId, { focused: true });
       });
 
+      // Right-click context menu
+      tabItem.addEventListener('contextmenu', (e) => {
+        handleTabRightClick(e, tab);
+      });
+
       tabList.appendChild(tabItem);
     });
 
@@ -988,6 +1126,292 @@ async function loadTabs() {
   } catch (error) {
     tabList.innerHTML = `<div class="empty-state">Error loading tabs: ${error.message}</div>`;
   }
+}
+
+async function loadBookmarkedView() {
+  const tabList = document.getElementById('tab-list');
+  tabList.innerHTML = '<div class="loading-state">Loading bookmarks...</div>';
+
+  try {
+    // Sync bookmarks from Chrome to database
+    await syncBookmarksToDatabase();
+
+    // Load nicknames
+    await loadNicknames();
+
+    // Get all bookmarks from database
+    let bookmarks = await db.getAllBookmarks();
+
+    // Get currently open tabs to check which bookmarks are open
+    const openTabs = await chrome.tabs.query({});
+    const openTabsByUrl = new Map();
+    openTabs.forEach(tab => {
+      openTabsByUrl.set(tab.url, tab);
+    });
+
+    // Apply search filter
+    if (currentSearchQuery) {
+      const query = currentSearchQuery.toLowerCase();
+      bookmarks = bookmarks.filter(bookmark =>
+        (bookmark.title && bookmark.title.toLowerCase().includes(query)) ||
+        (bookmark.url && bookmark.url.toLowerCase().includes(query)) ||
+        (bookmark.folderPath && bookmark.folderPath.toLowerCase().includes(query))
+      );
+    }
+
+    // Sort bookmarks
+    bookmarks = sortBookmarks(bookmarks, currentSort);
+
+    tabList.innerHTML = '';
+
+    if (bookmarks.length === 0) {
+      tabList.innerHTML = '<div class="empty-state">No bookmarks found</div>';
+      updateBookmarkStats(0);
+      return;
+    }
+
+    // Render all bookmarks
+    bookmarks.forEach(bookmark => {
+      const tabItem = document.createElement('div');
+      tabItem.className = 'tab-item bookmark-item';
+
+      const openTab = openTabsByUrl.get(bookmark.url);
+      const isOpen = !!openTab;
+      if (isOpen) tabItem.classList.add('bookmark-open');
+
+      const favicon = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(bookmark.url).hostname)}&sz=32`;
+
+      const bookmarkIconHtml = '<svg class="bookmark-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+
+      const openIndicatorHtml = isOpen
+        ? '<svg class="open-indicator" width="10" height="10" viewBox="0 0 16 16" fill="none" title="Currently open"><circle cx="8" cy="8" r="4" fill="var(--success-color, #22c55e)"/></svg>'
+        : '';
+
+      const nickname = nicknamesMap.get(bookmark.url);
+      const nicknameHtml = nickname
+        ? `<span class="tab-nickname">${highlightSearchMatch(nickname)}</span>`
+        : '';
+
+      const folderPathHtml = bookmark.folderPath
+        ? `<span class="bookmark-folder-path" title="${escapeHtml(bookmark.folderPath)}">${highlightSearchMatch(bookmark.folderPath)}</span>`
+        : '';
+
+      const dateAdded = bookmark.dateAdded
+        ? formatLastAccessed(bookmark.dateAdded)
+        : '';
+
+      tabItem.innerHTML = `
+        ${bookmarkIconHtml}
+        ${openIndicatorHtml}
+        <img class="tab-favicon" src="${favicon}" alt="">
+        ${nicknameHtml}
+        <span class="tab-title">${highlightSearchMatch(bookmark.title || 'Untitled')}</span>
+        <span class="tab-url">${highlightSearchMatch(truncateUrl(bookmark.url))}</span>
+        ${folderPathHtml}
+        <span class="tab-last-accessed">${dateAdded}</span>
+      `;
+
+      const faviconImg = tabItem.querySelector('.tab-favicon');
+      if (faviconImg) {
+        faviconImg.addEventListener('error', () => { faviconImg.src = DEFAULT_FAVICON; }, { once: true });
+      }
+
+      tabItem.addEventListener('click', () => {
+        if (isOpen && openTab) {
+          // Switch to the open tab
+          chrome.tabs.update(openTab.id, { active: true });
+          chrome.windows.update(openTab.windowId, { focused: true });
+        } else {
+          // Open bookmark in new tab
+          chrome.tabs.create({ url: bookmark.url });
+        }
+      });
+
+      // Right-click context menu - pass bookmark data as tab-like object
+      tabItem.addEventListener('contextmenu', (e) => {
+        const tabLikeData = {
+          id: openTab?.id || null,
+          url: bookmark.url,
+          title: bookmark.title,
+          favIconUrl: favicon,
+          pinned: openTab?.pinned || false,
+          windowId: openTab?.windowId || null
+        };
+        handleTabRightClick(e, tabLikeData);
+      });
+
+      tabList.appendChild(tabItem);
+    });
+
+    // Update stats for bookmarks view
+    updateBookmarkStats(bookmarks.length);
+  } catch (error) {
+    console.error('[TabSentry] Error loading bookmarks:', error);
+    tabList.innerHTML = `<div class="empty-state">Error loading bookmarks: ${error.message}</div>`;
+  }
+}
+
+function sortBookmarks(bookmarks, sortBy) {
+  const sorted = [...bookmarks];
+  switch (sortBy) {
+    case 'recent':
+      sorted.sort((a, b) => (b.dateAdded || 0) - (a.dateAdded || 0));
+      break;
+    case 'oldest':
+      sorted.sort((a, b) => (a.dateAdded || 0) - (b.dateAdded || 0));
+      break;
+    case 'az':
+      sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      break;
+    case 'za':
+      sorted.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+      break;
+  }
+  return sorted;
+}
+
+function updateBookmarkStats(count) {
+  const tabsCount = document.querySelectorAll('.stat-value')[1];
+  if (tabsCount) tabsCount.textContent = count;
+}
+
+async function loadNicknamedView() {
+  const tabList = document.getElementById('tab-list');
+  tabList.innerHTML = '<div class="loading-state">Loading nicknamed tabs...</div>';
+
+  try {
+    // Load all nicknames from database
+    const nicknames = await db.getAllNicknames();
+
+    // Get currently open tabs to check which nicknamed URLs are open
+    const openTabs = await chrome.tabs.query({});
+    const openTabsByUrl = new Map();
+    openTabs.forEach(tab => {
+      openTabsByUrl.set(tab.url, tab);
+    });
+
+    // Load bookmarked URLs for bookmark indicator
+    await loadBookmarkedUrls();
+
+    // Apply search filter
+    let filteredNicknames = nicknames;
+    if (currentSearchQuery) {
+      const query = currentSearchQuery.toLowerCase();
+      filteredNicknames = nicknames.filter(item =>
+        (item.nickname && item.nickname.toLowerCase().includes(query)) ||
+        (item.url && item.url.toLowerCase().includes(query))
+      );
+    }
+
+    // Sort nicknames
+    filteredNicknames = sortNicknames(filteredNicknames, currentSort);
+
+    tabList.innerHTML = '';
+
+    if (filteredNicknames.length === 0) {
+      tabList.innerHTML = '<div class="empty-state">No nicknamed tabs found</div>';
+      updateNicknameStats(0);
+      return;
+    }
+
+    // Render all nicknamed items
+    filteredNicknames.forEach(item => {
+      const tabItem = document.createElement('div');
+      tabItem.className = 'tab-item nicknamed-item';
+
+      const openTab = openTabsByUrl.get(item.url);
+      const isOpen = !!openTab;
+      if (isOpen) tabItem.classList.add('nicknamed-open');
+
+      const favicon = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(item.url).hostname)}&sz=32`;
+
+      const nicknameIconHtml = '<svg class="nickname-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M13.5 8C13.5 10.5 11 13.5 8 13.5C5 13.5 2.5 10.5 2.5 8C2.5 5.5 5 2.5 8 2.5H12.5L10 5H8C6.34315 5 5 6.34315 5 8C5 9.65685 6.34315 11 8 11C9.65685 11 11 9.65685 11 8V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+      const openIndicatorHtml = isOpen
+        ? '<svg class="open-indicator" width="10" height="10" viewBox="0 0 16 16" fill="none" title="Currently open"><circle cx="8" cy="8" r="4" fill="var(--success-color, #22c55e)"/></svg>'
+        : '';
+
+      const isBookmarked = bookmarkedUrls.has(item.url);
+      const bookmarkIconHtml = isBookmarked
+        ? '<svg class="bookmark-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+        : '';
+
+      // Get title from open tab or try to extract from URL
+      const title = openTab?.title || item.url;
+
+      tabItem.innerHTML = `
+        ${nicknameIconHtml}
+        ${openIndicatorHtml}
+        ${bookmarkIconHtml}
+        <img class="tab-favicon" src="${favicon}" alt="">
+        <span class="tab-nickname">${highlightSearchMatch(item.nickname)}</span>
+        <span class="tab-title">${highlightSearchMatch(truncateUrl(item.url))}</span>
+        <span class="tab-url">${highlightSearchMatch(truncateUrl(item.url))}</span>
+      `;
+
+      const faviconImg = tabItem.querySelector('.tab-favicon');
+      if (faviconImg) {
+        faviconImg.addEventListener('error', () => { faviconImg.src = DEFAULT_FAVICON; }, { once: true });
+      }
+
+      tabItem.addEventListener('click', () => {
+        if (isOpen && openTab) {
+          // Switch to the open tab
+          chrome.tabs.update(openTab.id, { active: true });
+          chrome.windows.update(openTab.windowId, { focused: true });
+        } else {
+          // Open URL in new tab
+          chrome.tabs.create({ url: item.url });
+        }
+      });
+
+      // Right-click context menu
+      tabItem.addEventListener('contextmenu', (e) => {
+        const tabLikeData = {
+          id: openTab?.id || null,
+          url: item.url,
+          title: title,
+          favIconUrl: favicon,
+          pinned: openTab?.pinned || false,
+          windowId: openTab?.windowId || null
+        };
+        handleTabRightClick(e, tabLikeData);
+      });
+
+      tabList.appendChild(tabItem);
+    });
+
+    // Update stats
+    updateNicknameStats(filteredNicknames.length);
+  } catch (error) {
+    console.error('[TabSentry] Error loading nicknamed tabs:', error);
+    tabList.innerHTML = `<div class="empty-state">Error loading nicknamed tabs: ${error.message}</div>`;
+  }
+}
+
+function sortNicknames(nicknames, sortBy) {
+  const sorted = [...nicknames];
+  switch (sortBy) {
+    case 'recent':
+      // No date for nicknames, sort by nickname alphabetically as default
+      sorted.sort((a, b) => (a.nickname || '').localeCompare(b.nickname || ''));
+      break;
+    case 'oldest':
+      sorted.sort((a, b) => (b.nickname || '').localeCompare(a.nickname || ''));
+      break;
+    case 'az':
+      sorted.sort((a, b) => (a.nickname || '').localeCompare(b.nickname || ''));
+      break;
+    case 'za':
+      sorted.sort((a, b) => (b.nickname || '').localeCompare(a.nickname || ''));
+      break;
+  }
+  return sorted;
+}
+
+function updateNicknameStats(count) {
+  const tabsCount = document.querySelectorAll('.stat-value')[1];
+  if (tabsCount) tabsCount.textContent = count;
 }
 
 function formatLastAccessed(timestamp) {
@@ -1035,13 +1459,11 @@ async function updateStats(tabs) {
   weekStart.setDate(weekStart.getDate() - 7);
   weekStart.setHours(0, 0, 0, 0);
 
-  // Get autoclosed tabs from storage and calculate week count
+  // Get autoclosed tabs from database and calculate week count
   if (autoclosedCount) {
     try {
-      const result = await chrome.storage.local.get(['autoclosedTabs']);
-      const autoclosedTabs = result.autoclosedTabs || [];
-      const weekCount = autoclosedTabs.filter(t => t.closedAt >= weekStart.getTime()).length;
-      autoclosedCount.textContent = weekCount;
+      const autoclosedTabs = await db.getAutoclosedTabsSince(weekStart.getTime());
+      autoclosedCount.textContent = autoclosedTabs.length;
     } catch (e) {
       autoclosedCount.textContent = '0';
     }
@@ -1067,6 +1489,12 @@ async function loadWindowsView() {
     if (showTimeAccumulated) {
       await loadTabTimeData();
     }
+
+    // Load nicknames
+    await loadNicknames();
+
+    // Load bookmarked URLs
+    await loadBookmarkedUrls();
 
     // Get all windows and tabs
     const windows = await chrome.windows.getAll({ populate: true });
@@ -1314,6 +1742,11 @@ function createWindowGroup(window, index, tabGroupMap, customTitle, isAnchor = f
           <path d="M6 14H3C2.44772 14 2 13.5523 2 13V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </button>
+      <button class="window-save-btn" title="Save this window">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+          <path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+      </button>
       <button class="window-delete-btn" title="Close this window">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
           <path d="M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -1394,6 +1827,35 @@ function createWindowGroup(window, index, tabGroupMap, customTitle, isAnchor = f
         input.remove();
       }
     });
+  });
+
+  // Save button handler
+  header.querySelector('.window-save-btn').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    btn.disabled = true;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'SAVE_WINDOW',
+        windowId: window.id
+      });
+
+      if (response?.success) {
+        // Visual feedback - briefly change icon color
+        btn.style.color = '#10b981';
+        setTimeout(() => {
+          btn.style.color = '';
+          btn.disabled = false;
+        }, 1000);
+      } else {
+        console.error('[TabSentry] Failed to save window:', response?.error || 'No response from background');
+        btn.disabled = false;
+      }
+    } catch (error) {
+      console.error('[TabSentry] Error saving window:', error);
+      btn.disabled = false;
+    }
   });
 
   // Delete button handler
@@ -1512,8 +1974,20 @@ function createRecentlyVisitedItem(historyItem) {
 
   const faviconUrl = getFaviconFromUrl(historyItem.url);
 
+  const isBookmarked = bookmarkedUrls.has(historyItem.url);
+  const bookmarkIconHtml = isBookmarked
+    ? '<svg class="bookmark-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+    : '';
+
+  const nickname = nicknamesMap.get(historyItem.url);
+  const nicknameHtml = nickname
+    ? `<span class="tab-nickname">${highlightSearchMatch(nickname)}</span>`
+    : '';
+
   tabItem.innerHTML = `
+    ${bookmarkIconHtml}
     <img class="tab-favicon" src="${faviconUrl}" alt="">
+    ${nicknameHtml}
     <span class="tab-title">${highlightSearchMatch(historyItem.title || 'Untitled')}</span>
     <span class="tab-url">${highlightSearchMatch(truncateUrl(historyItem.url))}</span>
     ${lastVisited ? `<span class="tab-last-accessed">${lastVisited}</span>` : ''}
@@ -1746,9 +2220,26 @@ function createTabItem(tab, isInGroup = false) {
     ? `<span class="tab-time-accumulated" title="Time accumulated">${formatTimeAccumulated(timeAccumulated)}</span>`
     : '';
 
+  const isBookmarked = bookmarkedUrls.has(tab.url);
+  const bookmarkIconHtml = isBookmarked
+    ? '<svg class="bookmark-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+    : '';
+
+  const audibleIconHtml = tab.audible
+    ? '<svg class="audible-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 3L4 6H2V10H4L8 13V3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M11 5.5C11.8 6.3 12 7.1 12 8C12 8.9 11.8 9.7 11 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 3.5C14.3 4.8 15 6.4 15 8C15 9.6 14.3 11.2 13 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+    : '';
+
+  const nickname = nicknamesMap.get(tab.url);
+  const nicknameHtml = nickname
+    ? `<span class="tab-nickname">${highlightSearchMatch(nickname)}</span>`
+    : '';
+
   tabItem.innerHTML = `
     ${tab.pinned ? '<svg class="pin-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M9.5 2L14 6.5L12 8.5L12.5 12.5L8 8L3.5 12.5L4 8.5L2 6.5L6.5 2L8 3.5L9.5 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>' : ''}
+    ${bookmarkIconHtml}
+    ${audibleIconHtml}
     <img class="tab-favicon" src="${favicon}" alt="">
+    ${nicknameHtml}
     <span class="tab-title">${highlightSearchMatch(tab.title || 'Untitled')}</span>
     <span class="tab-url">${highlightSearchMatch(truncateUrl(tab.url))}</span>
     ${timeAccumulatedHtml}
@@ -1763,6 +2254,11 @@ function createTabItem(tab, isInGroup = false) {
   tabItem.addEventListener('click', () => {
     chrome.tabs.update(tab.id, { active: true });
     chrome.windows.update(tab.windowId, { focused: true });
+  });
+
+  // Right-click context menu
+  tabItem.addEventListener('contextmenu', (e) => {
+    handleTabRightClick(e, tab);
   });
 
   return tabItem;
@@ -1832,8 +2328,20 @@ async function loadMoreHistory() {
 
       const faviconUrl = getFaviconFromUrl(item.url);
 
+      const isBookmarked = bookmarkedUrls.has(item.url);
+      const bookmarkIconHtml = isBookmarked
+        ? '<svg class="bookmark-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 2.5H12C12.2761 2.5 12.5 2.72386 12.5 3V13.5L8 10.5L3.5 13.5V3C3.5 2.72386 3.72386 2.5 4 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+        : '';
+
+      const nickname = nicknamesMap.get(item.url);
+      const nicknameHtml = nickname
+        ? `<span class="tab-nickname">${highlightSearchMatch(nickname)}</span>`
+        : '';
+
       historyEl.innerHTML = `
+        ${bookmarkIconHtml}
         <img class="tab-favicon" src="${faviconUrl}" alt="">
+        ${nicknameHtml}
         <span class="tab-title">${highlightSearchMatch(item.title || 'Untitled')}</span>
         <span class="tab-url">${highlightSearchMatch(truncateUrl(item.url))}</span>
         <span class="tab-last-accessed">${lastVisited}</span>
@@ -1867,5 +2375,730 @@ function getFaviconFromUrl(url) {
   } catch {
     return DEFAULT_FAVICON;
   }
+}
+
+// ========================================
+// Context Menu Functions
+// ========================================
+
+function initContextMenu() {
+  const contextMenu = document.getElementById('tab-context-menu');
+  const moveSubmenu = document.getElementById('move-submenu');
+  const backdrop = document.getElementById('context-menu-backdrop');
+  if (!contextMenu) return;
+
+  // Close context menu when clicking backdrop
+  backdrop?.addEventListener('click', () => {
+    hideContextMenu();
+  });
+
+  // Close context menu when clicking the X button
+  const closeBtn = document.getElementById('context-menu-close');
+  closeBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideContextMenu();
+  });
+
+  // Close context menu when clicking outside (fallback)
+  document.addEventListener('click', (e) => {
+    if (!contextMenu.contains(e.target) && !moveSubmenu?.contains(e.target) && e.target !== backdrop) {
+      hideContextMenu();
+    }
+  });
+
+  // Close context menu on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      hideContextMenu();
+    }
+  });
+
+  // Close context menu on scroll
+  document.querySelector('.main-content')?.addEventListener('scroll', () => {
+    hideContextMenu();
+  });
+
+  // Handle context menu item clicks
+  contextMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.context-menu-item');
+    if (!item) return;
+
+    const action = item.dataset.action;
+    if (action) {
+      handleContextMenuAction(action);
+    }
+  });
+
+  // Handle move submenu hover
+  const moveItem = contextMenu.querySelector('[data-action="move"]');
+  if (moveItem) {
+    moveItem.addEventListener('mouseenter', showMoveSubmenu);
+  }
+}
+
+function showContextMenu(x, y, tab) {
+  const contextMenu = document.getElementById('tab-context-menu');
+  const backdrop = document.getElementById('context-menu-backdrop');
+  if (!contextMenu) return;
+
+  // Show backdrop
+  backdrop?.classList.remove('hidden');
+
+  // Store tab data
+  contextMenuTabId = tab.id;
+  contextMenuTabData = tab;
+
+  // Update menu header with tab info
+  const favicon = contextMenu.querySelector('.context-menu-favicon');
+  const title = contextMenu.querySelector('.context-menu-title');
+  const url = contextMenu.querySelector('.context-menu-url');
+
+  if (favicon) {
+    favicon.src = getSafeFaviconUrl(tab.favIconUrl);
+    favicon.onerror = () => { favicon.src = DEFAULT_FAVICON; };
+  }
+  if (title) title.textContent = tab.title || 'Untitled';
+  if (url) url.textContent = truncateUrl(tab.url);
+
+  // Update pin button text and style based on current state
+  const pinBtn = contextMenu.querySelector('[data-action="pin"]');
+  const pinBtnText = pinBtn?.querySelector('span');
+  if (pinBtnText) {
+    pinBtnText.textContent = tab.pinned ? 'Unpin' : 'Pin';
+  }
+  if (pinBtn) {
+    pinBtn.classList.toggle('active', tab.pinned);
+  }
+
+  // Update bookmark button text and style based on current state
+  const isBookmarked = bookmarkedUrls.has(tab.url);
+  const bookmarkBtn = contextMenu.querySelector('[data-action="bookmark"]');
+  const bookmarkBtnText = bookmarkBtn?.querySelector('span');
+  if (bookmarkBtnText) {
+    bookmarkBtnText.textContent = isBookmarked ? 'Remove Bookmark' : 'Bookmark';
+  }
+  if (bookmarkBtn) {
+    bookmarkBtn.classList.toggle('active', isBookmarked);
+  }
+
+  // Position menu within viewport bounds
+  contextMenu.classList.remove('hidden');
+
+  const menuRect = contextMenu.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Adjust x position if menu would overflow right
+  if (x + menuRect.width > viewportWidth) {
+    x = viewportWidth - menuRect.width - 10;
+  }
+  // Adjust x position if menu would overflow left
+  if (x < 10) {
+    x = 10;
+  }
+
+  // Adjust y position if menu would overflow bottom
+  if (y + menuRect.height > viewportHeight) {
+    y = viewportHeight - menuRect.height - 10;
+  }
+  // Adjust y position if menu would overflow top
+  if (y < 10) {
+    y = 10;
+  }
+
+  contextMenu.style.left = `${x}px`;
+  contextMenu.style.top = `${y}px`;
+}
+
+function hideContextMenu() {
+  const contextMenu = document.getElementById('tab-context-menu');
+  const moveSubmenu = document.getElementById('move-submenu');
+  const backdrop = document.getElementById('context-menu-backdrop');
+
+  if (contextMenu) {
+    contextMenu.classList.add('hidden');
+  }
+  if (moveSubmenu) {
+    moveSubmenu.classList.add('hidden');
+  }
+  if (backdrop) {
+    backdrop.classList.add('hidden');
+  }
+
+  contextMenuTabId = null;
+  contextMenuTabData = null;
+}
+
+async function handleContextMenuAction(action) {
+  if (!contextMenuTabId || !contextMenuTabData) return;
+
+  const tabId = contextMenuTabId;
+  const tabData = contextMenuTabData;
+
+  switch (action) {
+    case 'pin':
+      await handlePinAction(tabId, tabData);
+      break;
+    case 'nickname':
+      await handleNicknameAction(tabId, tabData);
+      break;
+    case 'bookmark':
+      await handleBookmarkAction(tabData);
+      break;
+    case 'move':
+      // Move action is handled by submenu hover
+      return;
+    case 'close':
+      await handleCloseAction(tabId);
+      break;
+  }
+
+  hideContextMenu();
+}
+
+async function handlePinAction(tabId, tabData) {
+  try {
+    await chrome.tabs.update(tabId, { pinned: !tabData.pinned });
+    // Reload view to reflect changes
+    loadCurrentView();
+  } catch (error) {
+    console.error('[TabSentry] Failed to pin/unpin tab:', error);
+  }
+}
+
+async function handleNicknameAction(tabId, tabData) {
+  const currentNickname = await getNickname(tabData.url);
+  showNicknameModal(tabId, tabData, currentNickname);
+}
+
+// Saved Windows Modal
+async function showSavedWindowsModal() {
+  const modal = document.getElementById('saved-windows-modal');
+  const listEl = document.getElementById('saved-windows-list');
+  const emptyEl = document.getElementById('saved-windows-empty');
+  const closeBtn = document.getElementById('saved-windows-close');
+
+  if (!modal || !listEl) return;
+
+  // Fetch saved windows
+  const response = await chrome.runtime.sendMessage({ type: 'GET_SAVED_WINDOWS' });
+  console.log('[TabSentry] GET_SAVED_WINDOWS response:', response);
+  const savedWindows = response?.success ? response.savedWindows : [];
+
+  // Clear and render list
+  listEl.innerHTML = '';
+
+  if (savedWindows.length === 0) {
+    listEl.classList.add('hidden');
+    emptyEl?.classList.remove('hidden');
+  } else {
+    listEl.classList.remove('hidden');
+    emptyEl?.classList.add('hidden');
+
+    // Sort by savedAt descending (newest first)
+    savedWindows.sort((a, b) => b.savedAt - a.savedAt);
+
+    for (const sw of savedWindows) {
+      const item = document.createElement('div');
+      item.className = 'saved-window-item';
+      item.innerHTML = `
+        <svg class="saved-window-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M2 6H14" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <div class="saved-window-info">
+          <div class="saved-window-name">${escapeHtml(sw.name)}</div>
+          <div class="saved-window-meta">${sw.tabs.length} tab${sw.tabs.length !== 1 ? 's' : ''} &middot; ${formatLastAccessed(sw.savedAt)}</div>
+        </div>
+        <div class="saved-window-actions">
+          <button class="saved-window-btn restore-btn" title="Restore window">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 8C2 4.68629 4.68629 2 8 2C11.3137 2 14 4.68629 14 8C14 11.3137 11.3137 14 8 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M5 8L8 11L11 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 4V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="saved-window-btn delete-btn" title="Delete saved window">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      `;
+
+      // Restore handler
+      item.querySelector('.restore-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const btn = e.currentTarget;
+        btn.disabled = true;
+
+        const restoreResponse = await chrome.runtime.sendMessage({
+          type: 'RESTORE_SAVED_WINDOW',
+          savedWindowId: sw.id
+        });
+
+        if (restoreResponse.success) {
+          modal.classList.add('hidden');
+        } else {
+          console.error('[TabSentry] Failed to restore window:', restoreResponse.error);
+          btn.disabled = false;
+        }
+      });
+
+      // Delete handler
+      item.querySelector('.delete-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const deleteResponse = await chrome.runtime.sendMessage({
+          type: 'DELETE_SAVED_WINDOW',
+          savedWindowId: sw.id
+        });
+
+        if (deleteResponse.success) {
+          item.remove();
+          // Check if list is now empty
+          if (listEl.children.length === 0) {
+            listEl.classList.add('hidden');
+            emptyEl?.classList.remove('hidden');
+          }
+        }
+      });
+
+      listEl.appendChild(item);
+    }
+  }
+
+  // Show modal
+  modal.classList.remove('hidden');
+
+  // Close handlers
+  closeBtn?.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  });
+}
+
+function showNicknameModal(tabId, tabData, currentNickname) {
+  const modal = document.getElementById('nickname-modal');
+  const favicon = document.getElementById('nickname-modal-favicon');
+  const tabTitle = document.getElementById('nickname-modal-tab-title');
+  const input = document.getElementById('nickname-input');
+  const cancelBtn = document.getElementById('nickname-cancel');
+  const saveBtn = document.getElementById('nickname-save');
+
+  if (!modal) return;
+
+  // Populate modal with tab info
+  if (favicon) {
+    favicon.src = getSafeFaviconUrl(tabData.favIconUrl);
+    favicon.onerror = () => { favicon.src = DEFAULT_FAVICON; };
+  }
+  if (tabTitle) {
+    tabTitle.textContent = tabData.title || 'Untitled';
+  }
+  if (input) {
+    input.value = currentNickname || '';
+  }
+
+  // Show modal
+  modal.classList.remove('hidden');
+
+  // Focus input
+  setTimeout(() => input?.focus(), 50);
+
+  // Clean up previous listeners
+  const newCancelBtn = cancelBtn.cloneNode(true);
+  const newSaveBtn = saveBtn.cloneNode(true);
+  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+  saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+
+  // Cancel handler
+  newCancelBtn.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+
+  // Save handler
+  const saveNickname = async () => {
+    const nickname = input.value.trim();
+    if (nickname) {
+      await setNickname(tabData.url, nickname);
+    } else {
+      await removeNickname(tabData.url);
+    }
+    modal.classList.add('hidden');
+    loadCurrentView();
+  };
+
+  newSaveBtn.addEventListener('click', saveNickname);
+
+  // Enter key to save
+  const handleKeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveNickname();
+    } else if (e.key === 'Escape') {
+      modal.classList.add('hidden');
+    }
+  };
+
+  input.addEventListener('keydown', handleKeydown);
+
+  // Close on overlay click
+  const handleOverlayClick = (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  };
+
+  modal.addEventListener('click', handleOverlayClick);
+}
+
+async function getTabNickname(tabId) {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'GET_TAB_NICKNAME',
+      tabId
+    });
+    return response?.nickname || null;
+  } catch (error) {
+    console.error('[TabSentry] Failed to get nickname:', error);
+    return null;
+  }
+}
+
+async function setTabNickname(tabId, nickname, url) {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'SET_TAB_NICKNAME',
+      tabId,
+      nickname,
+      url
+    });
+  } catch (error) {
+    console.error('[TabSentry] Failed to set nickname:', error);
+  }
+}
+
+async function removeTabNickname(tabId) {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'REMOVE_TAB_NICKNAME',
+      tabId
+    });
+  } catch (error) {
+    console.error('[TabSentry] Failed to remove nickname:', error);
+  }
+}
+
+// URL-based nickname functions
+async function getNickname(url) {
+  try {
+    const result = await db.getNickname(url);
+    return result?.nickname || null;
+  } catch (error) {
+    console.error('[TabSentry] Failed to get nickname:', error);
+    return null;
+  }
+}
+
+async function setNickname(url, nickname) {
+  try {
+    await db.setNickname(url, nickname);
+  } catch (error) {
+    console.error('[TabSentry] Failed to set nickname:', error);
+  }
+}
+
+async function removeNickname(url) {
+  try {
+    await db.removeNickname(url);
+  } catch (error) {
+    console.error('[TabSentry] Failed to remove nickname:', error);
+  }
+}
+
+async function handleBookmarkAction(tabData) {
+  try {
+    const isBookmarked = bookmarkedUrls.has(tabData.url);
+
+    if (isBookmarked) {
+      // Remove bookmark - find and delete it
+      const bookmarks = await chrome.bookmarks.search({ url: tabData.url });
+      for (const bookmark of bookmarks) {
+        await chrome.bookmarks.remove(bookmark.id);
+      }
+      bookmarkedUrls.delete(tabData.url);
+    } else {
+      // Create bookmark
+      await chrome.bookmarks.create({
+        title: tabData.title,
+        url: tabData.url
+      });
+      bookmarkedUrls.add(tabData.url);
+    }
+
+    // Reload view to reflect changes
+    loadCurrentView();
+  } catch (error) {
+    console.error('[TabSentry] Failed to toggle bookmark:', error);
+  }
+}
+
+async function handleCloseAction(tabId) {
+  try {
+    await chrome.tabs.remove(tabId);
+    // Reload view to reflect changes
+    loadCurrentView();
+  } catch (error) {
+    console.error('[TabSentry] Failed to close tab:', error);
+  }
+}
+
+async function showMoveSubmenu(e) {
+  const moveSubmenu = document.getElementById('move-submenu');
+  const contextMenu = document.getElementById('tab-context-menu');
+  if (!moveSubmenu || !contextMenu || !contextMenuTabData) return;
+
+  // Get all windows
+  const windows = await chrome.windows.getAll({ populate: true });
+
+  // Get window data from DB for titles
+  const windowData = await getWindowData(windows.map(w => w.id));
+
+  // Build submenu HTML
+  let html = '<div class="move-submenu-header">Windows</div>';
+
+  windows.forEach((win, index) => {
+    const isCurrentWindow = win.id === contextMenuTabData.windowId;
+    const windowTitle = windowData[win.id]?.title || `Window ${index + 1}`;
+    const tabCount = win.tabs?.length || 0;
+
+    html += `
+      <button class="move-submenu-item ${isCurrentWindow ? 'current-window' : ''}"
+              data-window-id="${win.id}"
+              ${isCurrentWindow ? 'disabled' : ''}>
+        <svg class="window-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M2 6H14" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <span>${escapeHtml(windowTitle)}${isCurrentWindow ? ' (current)' : ''}</span>
+        <span class="tab-count">${tabCount}</span>
+      </button>
+    `;
+  });
+
+  html += '<div class="move-submenu-divider"></div>';
+  html += `
+    <button class="move-submenu-item new-window" data-new-window="true">
+      <svg class="window-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 6V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M6 8H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>New Window</span>
+    </button>
+  `;
+
+  moveSubmenu.innerHTML = html;
+
+  // Add click handlers
+  moveSubmenu.querySelectorAll('.move-submenu-item').forEach(item => {
+    item.addEventListener('click', async (e) => {
+      e.stopPropagation();
+
+      if (item.dataset.newWindow === 'true') {
+        await handleMoveToNewWindow();
+      } else if (item.dataset.windowId && !item.classList.contains('current-window')) {
+        await handleMoveToWindow(parseInt(item.dataset.windowId));
+      }
+    });
+  });
+
+  // Position submenu next to the move button
+  const moveItem = contextMenu.querySelector('[data-action="move"]');
+  const moveItemRect = moveItem.getBoundingClientRect();
+  const contextMenuRect = contextMenu.getBoundingClientRect();
+
+  moveSubmenu.classList.remove('hidden');
+
+  const submenuRect = moveSubmenu.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Try to position to the right of the context menu
+  let x = contextMenuRect.right + 4;
+  let y = moveItemRect.top;
+
+  // If it would overflow right, position to the left instead
+  if (x + submenuRect.width > viewportWidth) {
+    x = contextMenuRect.left - submenuRect.width - 4;
+  }
+
+  // If it would still overflow left, clamp to left edge
+  if (x < 10) {
+    x = 10;
+  }
+
+  // If it would still overflow right after all adjustments, clamp to right edge
+  if (x + submenuRect.width > viewportWidth - 10) {
+    x = viewportWidth - submenuRect.width - 10;
+  }
+
+  // Adjust y position if menu would overflow bottom
+  if (y + submenuRect.height > viewportHeight) {
+    y = viewportHeight - submenuRect.height - 10;
+  }
+
+  // Adjust y position if menu would overflow top
+  if (y < 10) {
+    y = 10;
+  }
+
+  moveSubmenu.style.left = `${x}px`;
+  moveSubmenu.style.top = `${y}px`;
+
+  // Hide submenu when mouse leaves both menus
+  const hideSubmenuOnLeave = (e) => {
+    const target = e.relatedTarget;
+    if (!moveSubmenu.contains(target) && !moveItem.contains(target)) {
+      moveSubmenu.classList.add('hidden');
+    }
+  };
+
+  moveSubmenu.addEventListener('mouseleave', hideSubmenuOnLeave);
+  moveItem.addEventListener('mouseleave', (e) => {
+    // Small delay to allow moving to submenu
+    setTimeout(() => {
+      if (!moveSubmenu.matches(':hover')) {
+        moveSubmenu.classList.add('hidden');
+      }
+    }, 100);
+  });
+}
+
+async function handleMoveToWindow(windowId) {
+  const tabIds = getTabsToMove();
+  if (tabIds.length === 0) return;
+
+  try {
+    await chrome.tabs.move(tabIds, { windowId, index: -1 });
+    selectedTabs.clear();
+    updateMultiSelectInfoBar();
+    hideContextMenu();
+    loadCurrentView();
+  } catch (error) {
+    console.error('[TabSentry] Failed to move tabs:', error);
+  }
+}
+
+async function handleMoveToNewWindow() {
+  if (!contextMenuTabId) return;
+  await showNewWindowModal();
+}
+
+async function showNewWindowModal() {
+  const modal = document.getElementById('new-window-modal');
+  const nameInput = document.getElementById('new-window-name-input');
+  const tabsList = document.getElementById('new-window-tabs-list');
+  const tabsCount = document.getElementById('new-window-tabs-count');
+
+  // Get tabs to move
+  const tabIds = getTabsToMove();
+  const tabsData = await getTabDataForIds(tabIds);
+  newWindowTabsToMove = tabsData;
+
+  // Populate tabs list
+  tabsList.innerHTML = '';
+  tabsCount.textContent = `${tabsData.length} tab${tabsData.length > 1 ? 's' : ''}`;
+
+  tabsData.forEach(tab => {
+    const item = document.createElement('div');
+    item.className = 'new-window-tab-item';
+    item.innerHTML = `
+      <img class="new-window-tab-favicon" src="${getSafeFaviconUrl(tab.favIconUrl)}" onerror="this.src='${DEFAULT_FAVICON}'">
+      <span class="new-window-tab-title">${tab.title || 'Untitled'}</span>
+    `;
+    tabsList.appendChild(item);
+  });
+
+  nameInput.value = '';
+  hideContextMenu();
+  modal.classList.remove('hidden');
+  setTimeout(() => nameInput?.focus(), 50);
+
+  // Setup handlers (clone buttons to clear old listeners)
+  setupNewWindowModalHandlers();
+}
+
+function setupNewWindowModalHandlers() {
+  const modal = document.getElementById('new-window-modal');
+  const nameInput = document.getElementById('new-window-name-input');
+  const cancelBtn = document.getElementById('new-window-cancel');
+  const confirmBtn = document.getElementById('new-window-confirm');
+
+  const newCancel = cancelBtn.cloneNode(true);
+  const newConfirm = confirmBtn.cloneNode(true);
+  cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+  confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+
+  const closeModal = () => {
+    modal.classList.add('hidden');
+    newWindowTabsToMove = [];
+  };
+
+  const createWindow = async () => {
+    await executeNewWindowCreation(nameInput.value.trim());
+    closeModal();
+  };
+
+  newCancel.addEventListener('click', closeModal);
+  newConfirm.addEventListener('click', createWindow);
+  nameInput.onkeydown = (e) => {
+    if (e.key === 'Enter') createWindow();
+    if (e.key === 'Escape') closeModal();
+  };
+  modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+}
+
+async function executeNewWindowCreation(windowName) {
+  if (newWindowTabsToMove.length === 0) return;
+
+  try {
+    const firstTab = newWindowTabsToMove[0];
+    const newWindow = await chrome.windows.create({ tabId: firstTab.id });
+
+    // Move remaining tabs
+    if (newWindowTabsToMove.length > 1) {
+      const remainingIds = newWindowTabsToMove.slice(1).map(t => t.id);
+      await chrome.tabs.move(remainingIds, { windowId: newWindow.id, index: -1 });
+    }
+
+    // Save window name if provided
+    if (windowName) {
+      await chrome.runtime.sendMessage({
+        type: 'UPDATE_WINDOW_TITLE',
+        windowId: newWindow.id,
+        title: windowName
+      });
+    }
+
+    // Clear selection and reload
+    selectedTabs.clear();
+    updateMultiSelectInfoBar();
+    loadCurrentView();
+  } catch (error) {
+    console.error('[TabSentry] Failed to create new window:', error);
+  }
+}
+
+function handleTabRightClick(e, tab) {
+  e.preventDefault();
+  e.stopPropagation();
+  showContextMenu(e.clientX, e.clientY, tab);
 }
 

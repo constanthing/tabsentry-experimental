@@ -8,6 +8,7 @@ export class AutoCloser {
     constructor(db) {
         this.db = db;
         this.timeIncrementMs = NORMAL_TIME_INCREMENT_MS;
+        this.isInitialized = false;
     }
 
     async initialize() {
@@ -30,6 +31,8 @@ export class AutoCloser {
 
         const intervalDisplay = quickAccumulate ? '10-second' : '30-minute';
         console.log(`[TabSentry] AutoCloser initialized with ${intervalDisplay} interval`);
+
+        this.isInitialized = true;
     }
 
     async recreateAlarm() {
@@ -178,6 +181,14 @@ export class AutoCloser {
 
     async closeTab(tab) {
         try {
+            // Save tab info to database before closing
+            await this.db.addAutoclosedTab({
+                url: tab.url,
+                title: tab.title,
+                favIconUrl: tab.faviconUrl || tab.favIconUrl,
+                timeAccumulated: tab.timeAccumulated || 0
+            });
+
             // Close the actual Chrome tab
             await chrome.tabs.remove(tab.id);
             console.log(`[TabSentry] Auto-closed tab: ${tab.title} (accumulated: ${Math.round(tab.timeAccumulated / 60000)} mins)`);

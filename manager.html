@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab Manager - TabSentry</title>
+  <link rel="stylesheet" href="manager.css">
+</head>
+
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-left">
+        <button class="back-btn" id="back-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Back</span>
+        </button>
+        <h1 class="header-title">Tab Manager</h1>
+      </div>
+
+      <div class="header-center">
+        <div class="search-container">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M7 12C9.76142 12 12 9.76142 12 7C12 4.23858 9.76142 2 7 2C4.23858 2 2 4.23858 2 7C2 9.76142 4.23858 12 7 12Z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <input type="text" class="search-input" id="search-input" placeholder="Search tabs...">
+          <button class="search-clear-btn hidden" id="search-clear-btn" type="button" aria-label="Clear search">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="dropdown">
+          <button class="dropdown-btn">
+            <span id="current-sort-label">Recent</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="dropdown-menu" id="sort-menu">
+            <div class="dropdown-header">Sort</div>
+            <a href="#" class="dropdown-item active" data-sort="recent">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 3V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M4 7L8 3L12 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Recent</span>
+            </a>
+            <a href="#" class="dropdown-item" data-sort="oldest">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 13V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M4 9L8 13L12 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Oldest</span>
+            </a>
+            <a href="#" class="dropdown-item" data-sort="az">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 4H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M3 8H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M3 12H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span>A-Z</span>
+            </a>
+            <a href="#" class="dropdown-item" data-sort="za">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 4H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M3 8H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M3 12H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span>Z-A</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="manager-layout">
+      <!-- Sidebar: Windows List -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <h2 class="sidebar-title">Windows</h2>
+          <span class="window-count" id="window-count">0</span>
+        </div>
+        <div class="windows-list" id="windows-list">
+          <div class="loading-state">Loading windows...</div>
+        </div>
+      </aside>
+
+      <!-- Main Content: Tabs -->
+      <main class="content">
+        <div class="content-header">
+          <div class="content-header-left">
+            <h2 class="content-title" id="content-title">All Tabs</h2>
+            <span class="tab-count" id="tab-count">0 tabs</span>
+          </div>
+          <div class="content-header-right">
+            <button class="action-btn" id="close-selected-btn" disabled>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span>Close Selected</span>
+            </button>
+          </div>
+        </div>
+        <div class="tabs-list" id="tabs-list">
+          <div class="loading-state">Loading tabs...</div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Selection Info Bar -->
+    <div id="selection-info" class="selection-info hidden">
+      <span class="selection-count" id="selection-count">0 tabs selected</span>
+      <span class="selection-hint"><kbd>Esc</kbd> to deselect</span>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <svg class="modal-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 9V13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="12" cy="17" r="1" fill="currentColor"/>
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3 class="modal-title" id="modal-title">Close Tabs?</h3>
+        </div>
+        <p class="modal-message" id="modal-message">Are you sure you want to close the selected tabs?</p>
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn-cancel" id="modal-cancel">Cancel</button>
+          <button class="modal-btn modal-btn-confirm" id="modal-confirm">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="manager.js"></script>
+</body>
+
+</html>
