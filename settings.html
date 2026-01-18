@@ -5,6 +5,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Settings - TabSentry</title>
+  <link rel="stylesheet" href="fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="fontawesome/css/custom-icons.min.css">
   <link rel="stylesheet" href="settings.css">
 </head>
 
@@ -12,9 +16,7 @@
   <div class="container">
     <header class="header">
       <button class="back-btn" id="back-btn">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <i class="fa-regular fa-chevron-left"></i>
         <span>Back</span>
       </button>
       <h1 class="header-title">Settings</h1>
@@ -27,67 +29,37 @@
         <ul class="nav-list">
           <li>
             <button class="nav-item active" data-section="auto-close">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M12 7V12L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              <i class="fa-regular fa-clock"></i>
               <span>Auto-Close</span>
             </button>
           </li>
           <li>
             <button class="nav-item" data-section="appearance">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M12 5V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M12 21V19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M5 12H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M21 12H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M7.05 7.05L5.64 5.64" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M18.36 18.36L16.95 16.95" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M7.05 16.95L5.64 18.36" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M18.36 5.64L16.95 7.05" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
+              <i class="fa-regular fa-palette"></i>
               <span>Appearance</span>
             </button>
           </li>
           <li>
             <button class="nav-item" data-section="ai">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              <i class="fa-regular fa-microchip-ai"></i>
               <span>Artificial Intelligence</span>
             </button>
           </li>
           <li>
             <button class="nav-item" data-section="smart-organizer">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
+              <i class="fa-regular fa-wand-magic-sparkles"></i>
               <span>Smart Window Organizer</span>
             </button>
           </li>
           <li>
             <button class="nav-item" data-section="filters">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M3 6H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M6 12H18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M9 18H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
+              <i class="fa-regular fa-filter"></i>
               <span>Filters</span>
             </button>
           </li>
           <li>
             <button class="nav-item" data-section="backup">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 15V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              <i class="fa-regular fa-cloud-arrow-down"></i>
               <span>Backup and Restore</span>
             </button>
           </li>
@@ -207,23 +179,11 @@
               </div>
               <div class="theme-toggle" id="theme-toggle">
                 <button class="theme-option" data-theme="light">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M8 2V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M8 13V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M14 8H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M3 8H2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M12.24 3.76L11.54 4.46" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M4.46 11.54L3.76 12.24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M12.24 12.24L11.54 11.54" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M4.46 4.46L3.76 3.76" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  </svg>
+                  <i class="fa-regular fa-sun"></i>
                   <span>Light</span>
                 </button>
                 <button class="theme-option" data-theme="dark">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M14 10.5C13.1 11.4 11.9 12 10.5 12C7.46243 12 5 9.53757 5 6.5C5 5.1 5.6 3.9 6.5 3C4.3 3.6 2.5 5.6 2.5 8C2.5 11.0376 4.96243 13.5 8 13.5C10.4 13.5 12.4 11.7 13 9.5L14 10.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
+                  <i class="fa-regular fa-moon"></i>
                   <span>Dark</span>
                 </button>
               </div>
@@ -278,10 +238,7 @@
             </div>
 
             <button class="btn-action btn-primary" id="add-filter-btn">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 3V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M3 8H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
+              <i class="fa-regular fa-plus"></i>
               Add Filter
             </button>
           </div>
@@ -380,19 +337,11 @@
               </div>
               <div class="action-buttons">
                 <button class="btn-action btn-primary" id="backup-now">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path d="M21 15V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M12 15V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
+                  <i class="fa-regular fa-download"></i>
                   Backup Now
                 </button>
                 <button class="btn-action btn-secondary" id="restore-file">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path d="M21 15V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M17 8L12 3L7 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M12 3V15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
+                  <i class="fa-regular fa-upload"></i>
                   Restore from File
                 </button>
               </div>
@@ -412,10 +361,7 @@
       <div class="modal-header">
         <h3 class="modal-title" id="filter-modal-title">Add Filter</h3>
         <button class="modal-close" id="filter-modal-close">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
+          <i class="fa-regular fa-xmark"></i>
         </button>
       </div>
 
@@ -442,18 +388,12 @@
             <div class="filter-value-row">
               <input type="text" class="form-input filter-value-input" placeholder="Value to match">
               <button type="button" class="filter-value-remove" title="Remove value">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path d="M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
+                <i class="fa-regular fa-xmark"></i>
               </button>
             </div>
           </div>
           <button type="button" class="btn-add-value" id="add-filter-value">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path d="M8 3V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M3 8H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
+            <i class="fa-regular fa-plus"></i>
             Add another value
           </button>
           <span class="form-hint">Tab matches if any value matches. For URLs, "https://" and "http://" prefixes are ignored</span>

@@ -373,6 +373,102 @@ export default class DB {
         return await this.db.filters.delete(id);
     }
 
+    async seedDefaultFilters() {
+        const existingFilters = await this.db.filters.count();
+        if (existingFilters > 0) return;
+
+        const defaultFilters = [
+            {
+                name: "Chats",
+                property: "url",
+                operator: "includes",
+                values: [
+                    "app.wave.co",
+                    "chatgpt.com",
+                    "claude.ai",
+                    "perplexity.ai",
+                    "gemini.google.com",
+                    "grok.com",
+                    "fireflies.ai",
+                    "notebooklm.google",
+                    "otter.ai",
+                    "voicenotes.ai"
+                ],
+                smartWindowAction: "none"
+            },
+            {
+                name: "Social Media",
+                property: "url",
+                operator: "includes",
+                values: [
+                    "x.com",
+                    "reddit.com",
+                    "facebook.com",
+                    "instagram.com",
+                    "bsky.app",
+                    "tumblr.com",
+                    "threads.com",
+                    "tiktok.com",
+                    "youtube.com",
+                    "snapchat.com",
+                    "pinterest.com",
+                    "substack.com"
+                ],
+                smartWindowAction: "none"
+            },
+            {
+                name: "News",
+                property: "url",
+                operator: "includes",
+                values: [
+                    "nytimes.com",
+                    "nextdoor.com",
+                    "wsj.com",
+                    "washingtonpost.com",
+                    "bloomberg.com",
+                    "time.com"
+                ],
+                smartWindowAction: "none"
+            },
+            {
+                name: "Knowledge",
+                property: "url",
+                operator: "includes",
+                values: [
+                    "medium.com",
+                    "quora.com",
+                    "substack.com",
+                    "wikipedia.org"
+                ],
+                smartWindowAction: "none"
+            },
+            {
+                name: "Programming",
+                property: "url",
+                operator: "includes",
+                values: [
+                    "github.com",
+                    "leetcode.com",
+                    "stackoverflow.com",
+                    "freecodecamp.org",
+                    "educative.io",
+                    "hackerrank.com",
+                    "roadmap.sh"
+                ],
+                smartWindowAction: "none"
+            }
+        ];
+
+        const now = Date.now();
+        for (const filter of defaultFilters) {
+            await this.db.filters.add({
+                ...filter,
+                createdAt: now,
+                updatedAt: now
+            });
+        }
+    }
+
     // Automoved tabs methods
     async addAutomovedTab(data) {
         return await this.db.automovedTabs.add({

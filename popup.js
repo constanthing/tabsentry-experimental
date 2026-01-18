@@ -1720,13 +1720,7 @@ function createWindowGroup(window, index, tabGroupMap, customTitle, isAnchor = f
     <div class="window-group-meta">
       <span class="window-tab-count">${tabCount} tab${tabCount !== 1 ? 's' : ''}</span>
       <button class="window-anchor-btn ${isAnchor ? 'active' : ''}" title="${isAnchor ? 'Remove anchor' : 'Set as anchor window'}">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="3" r="2" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M8 5V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M8 13L5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M8 13L11 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M4 8H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
+        <i class="fa-regular fa-anchor"></i>
       </button>
       <button class="window-edit-btn" title="Edit window title" data-window-id="${window.id}">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none">

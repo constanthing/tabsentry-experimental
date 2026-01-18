@@ -299,32 +299,38 @@ async function handleRestoreFile(event) {
     const content = await file.text();
     const backupData = JSON.parse(content);
 
-    if (!backupData.version || !backupData.data) {
-      throw new Error('Invalid backup file format');
-    }
-
-    // Restore settings
-    if (backupData.data.settings) {
-      for (const setting of backupData.data.settings) {
-        await db.setSetting(setting.title, setting.value);
+    // Detect format: array = new format, object = old format
+    if (Array.isArray(backupData)) {
+      await restoreFromNewFormat(backupData);
+    } else {
+      // Old format validation
+      if (!backupData.version || !backupData.data) {
+        throw new Error('Invalid backup file format');
       }
-    }
 
-    // Restore other data tables
-    if (backupData.data.closedTabs && db.db.closedTabs) {
-      await db.db.closedTabs.bulkPut(backupData.data.closedTabs);
-    }
+      // Restore settings
+      if (backupData.data.settings) {
+        for (const setting of backupData.data.settings) {
+          await db.setSetting(setting.title, setting.value);
+        }
+      }
 
-    if (backupData.data.windows && db.db.windows) {
-      await db.db.windows.bulkPut(backupData.data.windows);
-    }
+      // Restore other data tables
+      if (backupData.data.closedTabs && db.db.closedTabs) {
+        await db.db.closedTabs.bulkPut(backupData.data.closedTabs);
+      }
 
-    if (backupData.data.savedForLater && db.db.savedForLater) {
-      await db.db.savedForLater.bulkPut(backupData.data.savedForLater);
-    }
+      if (backupData.data.windows && db.db.windows) {
+        await db.db.windows.bulkPut(backupData.data.windows);
+      }
 
-    if (backupData.data.nicknames && db.db.nicknames) {
-      await db.db.nicknames.bulkPut(backupData.data.nicknames);
+      if (backupData.data.savedForLater && db.db.savedForLater) {
+        await db.db.savedForLater.bulkPut(backupData.data.savedForLater);
+      }
+
+      if (backupData.data.nicknames && db.db.nicknames) {
+        await db.db.nicknames.bulkPut(backupData.data.nicknames);
+      }
     }
 
     // Reload settings to reflect changes
@@ -338,6 +344,137 @@ async function handleRestoreFile(event) {
 
   // Reset file input
   event.target.value = '';
+}
+
+// New format restore functions
+async function restoreFromNewFormat(backupArray) {
+  for (const item of backupArray) {
+    switch (item.type) {
+      case 'nicknames':
+        await restoreNicknames(item.data);
+        break;
+      case 'saved-for-later':
+        await restoreSavedForLater(item.data);
+        break;
+      case 'windows':
+        await restoreWindows(item.data);
+        break;
+      case 'system-settings':
+        await restoreSystemSettings(item.data);
+        break;
+      case 'filters':
+        await restoreFilters(item.data);
+        break;
+    }
+  }
+}
+
+async function restoreNicknames(data) {
+  if (!data || !db.db.nicknames) return;
+
+  const nicknames = data.map(item => ({
+    url: item.url,
+    nickname: item.nickname
+  }));
+
+  await db.db.nicknames.bulkPut(nicknames);
+}
+
+async function restoreSavedForLater(data) {
+  if (!data || !db.db.savedWindows) return;
+
+  await db.db.savedWindows.bulkPut(data);
+}
+
+async function restoreWindows(data) {
+  if (!data) return;
+
+  // Get all currently open Chrome windows
+  const openWindows = await chrome.windows.getAll();
+  const openWindowIds = new Set(openWindows.map(w => w.id));
+
+  // Get current anchor window info
+  const anchorResponse = await chrome.runtime.sendMessage({ type: 'GET_ANCHOR_WINDOW' });
+  const currentAnchorWindowId = anchorResponse?.success ? anchorResponse.activeAnchorWindowId : null;
+
+  for (const backupWindow of data) {
+    const windowId = backupWindow._windowId;
+
+    // Only process if window is currently open
+    if (!openWindowIds.has(windowId)) continue;
+
+    // Determine title to use: prefer title, fall back to aiTitle if title is empty
+    const titleToUse = backupWindow.title || backupWindow.aiTitle;
+    if (titleToUse) {
+      await db.updateWindow(windowId, { title: titleToUse });
+    }
+
+    // Set as anchor window if anchored: 1
+    if (backupWindow.anchored === 1) {
+      // Skip if this window is already the anchor
+      if (currentAnchorWindowId === windowId) continue;
+
+      // Clear current anchor window and snapshots first
+      await chrome.runtime.sendMessage({ type: 'CLEAR_ANCHOR_WINDOW' });
+
+      // Set new anchor window
+      await chrome.runtime.sendMessage({
+        type: 'SET_ANCHOR_WINDOW',
+        windowId
+      });
+    }
+  }
+}
+
+async function restoreSystemSettings(data) {
+  if (!data) return;
+
+  // Mapping from backup names to DB setting names
+  const settingsMap = {
+    'auto-close-threshold': 'keepOpenThreshold',
+    'auto-close-threshold-source': 'thresholdScope',
+    'autoClose': 'autoCloseEnabled'
+  };
+
+  for (const setting of data) {
+    const dbSettingName = settingsMap[setting.name];
+
+    // Only restore allowed settings
+    if (dbSettingName) {
+      await db.setSetting(dbSettingName, setting.value);
+    }
+  }
+}
+
+async function restoreFilters(data) {
+  if (!data || !db.db.filters) return;
+
+  for (const filter of data) {
+    // Skip if no conditions
+    if (!filter.conditions || filter.conditions.length === 0) continue;
+
+    // Extract properties from the first condition
+    const condition = filter.conditions[0];
+
+    // Normalize value to array format (values)
+    const values = Array.isArray(condition.value)
+      ? condition.value
+      : [condition.value];
+
+    const filterData = {
+      name: filter.name,
+      property: condition.property,
+      operator: condition.operator,
+      values: values,
+      smartWindowAction: 'none'
+    };
+
+    await db.db.filters.add({
+      ...filterData,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+  }
 }
 
 function downloadFile(content, filename, mimeType) {

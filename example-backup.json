@@ -1,0 +1,191 @@
+[
+    {
+        "type": "open-tabs",
+        "data": []
+    },
+    {
+        "type": "closed-tabs",
+        "data": []
+    },
+    {
+        "type": "system-settings",
+        "data": [
+            {
+                "name": "cleanedTabs",
+                "value": true,
+                "_systemId": 1
+            },
+            {
+                "name": "backupEnabled",
+                "value": false,
+                "_systemId": 2
+            },
+            {
+                "name": "backup-schedule",
+                "value": "daily",
+                "_systemId": 3
+            },
+            {
+                "name": "backup-time",
+                "value": "00:00",
+                "_systemId": 4
+            },
+            {
+                "name": "protect-pinned-tabs",
+                "value": true,
+                "_systemId": 5
+            },
+            {
+                "name": "auto-close-threshold",
+                "value": 5,
+                "_systemId": 6
+            },
+            {
+                "name": "auto-close-threshold-source",
+                "value": "browser",
+                "_systemId": 7
+            },
+            {
+                "name": "deleteOldAutoClosedFilter",
+                "value": true,
+                "_systemId": 8
+            },
+            {
+                "name": "pinnedTabsOnTop",
+                "value": true,
+                "_systemId": 9
+            },
+            {
+                "name": "enableAITagging",
+                "value": true,
+                "_systemId": 10
+            },
+            {
+                "name": "default-tags-created",
+                "value": true,
+                "_systemId": 11
+            },
+            {
+                "name": "view",
+                "value": "window",
+                "_systemId": 12
+            },
+            {
+                "name": "tabDetail",
+                "value": "detailed",
+                "_systemId": 13
+            },
+            {
+                "name": "autoClose",
+                "value": true,
+                "_systemId": 14
+            },
+            {
+                "name": "alwaysShowClosedTabs",
+                "value": true,
+                "_systemId": 15
+            },
+            {
+                "name": "theme",
+                "value": "dark",
+                "_systemId": 16
+            },
+            {
+                "name": "initDatabase",
+                "value": true,
+                "_systemId": 17
+            },
+            {
+                "name": "backupData",
+                "value": {
+                    "all": true,
+                    "openTabs": true,
+                    "closedTabs": true,
+                    "windows": true,
+                    "systemSettings": true,
+                    "savedForLater": true,
+                    "nicknames": true
+                },
+                "_systemId": 18
+            },
+            {
+                "name": "autoCloseTimeLimit",
+                "value": 24,
+                "_systemId": 19
+            },
+            {
+                "name": "lastAutocloseUpdateTime",
+                "value": 1768695837873,
+                "_systemId": 20
+            },
+            {
+                "name": "startupAt",
+                "value": 1768680381383,
+                "_systemId": 21
+            },
+            {
+                "name": "removed-windows",
+                "value": [],
+                "_systemId": 22
+            },
+            {
+                "name": "recovery-candidates",
+                "value": null,
+                "_systemId": 23
+            },
+            {
+                "name": "recovered",
+                "value": true,
+                "_systemId": 24
+            },
+            {
+                "name": "rebootDetected",
+                "value": false,
+                "_systemId": 25
+            },
+            {
+                "name": "backupSplit",
+                "value": false,
+                "_systemId": 26
+            }
+        ]
+    },
+    {
+        "type": "saved-for-later",
+        "data": []
+    },
+    {
+        "type": "nicknames",
+        "data": [
+            {
+                "nickname": "Some nickname.",
+                "url": "chrome://newtab/",
+                "_nicknameId": 1
+            }
+        ]
+    },
+    {
+        "type": "windows",
+        "data": [
+            {
+                "_windowId": 1218219296,
+                "title": null,
+                "aiTitle": "Personal Productivity",
+                "useAiTitle": 1,
+                "createdAt": 1768680381011,
+                "tabsLength": 11,
+                "lastAccessed": 1768697268459
+            },
+            {
+                "_windowId": 1218219647,
+                "title": null,
+                "aiTitle": "General Browsing",
+                "useAiTitle": 1,
+                "createdAt": 1768696535016,
+                "tabsLength": 1,
+                "lastAccessed": 1768696560396,
+                "anchored": 1
+            }
+        ]
+    }
+]

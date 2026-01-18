@@ -1,0 +1,130 @@
+[
+    {
+        "type": "filters",
+        "data": [
+            {
+                "name": "Auto-Closed",
+                "pinned": 1,
+                "conditions": [
+                    {
+                        "property": "autoclosed",
+                        "type": "boolean",
+                        "operator": "equals",
+                        "value": 1
+                    }
+                ],
+                "_filterId": 1
+            },
+            {
+                "name": "Chats",
+                "pinned": 1,
+                "conditions": [
+                    {
+                        "property": "url",
+                        "type": "string",
+                        "operator": "includes",
+                        "value": [
+                            "app.wave.co",
+                            "chatgpt.com",
+                            "claude.ai",
+                            "perplexity.ai",
+                            "gemini.google.com",
+                            "grok.com",
+                            "wave.co",
+                            "fireflies.ai",
+                            "notebooklm.google",
+                            "otter.ai",
+                            "voicenotes.ai"
+                        ]
+                    }
+                ],
+                "_filterId": 2
+            },
+            {
+                "name": "Social Media",
+                "pinned": 1,
+                "conditions": [
+                    {
+                        "property": "url",
+                        "type": "string",
+                        "operator": "includes",
+                        "value": [
+                            "x.com",
+                            "reddit.com",
+                            "facebook.com",
+                            "instagram.com",
+                            "bsky.app",
+                            "tumblr.com",
+                            "threads.com",
+                            "tiktok.com",
+                            "youtube.com",
+                            "snapchat.com",
+                            "pinterest.com",
+                            "substack.com"
+                        ]
+                    }
+                ],
+                "_filterId": 3
+            },
+            {
+                "name": "News",
+                "pinned": 1,
+                "conditions": [
+                    {
+                        "property": "url",
+                        "type": "string",
+                        "operator": "includes",
+                        "value": [
+                            "nytimes.com",
+                            "nextdoor.com",
+                            "wsj.com",
+                            "washingtonpost.com",
+                            "bloomberg.com",
+                            "time.com"
+                        ]
+                    }
+                ],
+                "_filterId": 4
+            },
+            {
+                "name": "Knowledge",
+                "pinned": 1,
+                "conditions": [
+                    {
+                        "property": "url",
+                        "type": "string",
+                        "operator": "includes",
+                        "value": [
+                            "medium.com",
+                            "quora.com",
+                            "substack.com",
+                            "wikipedia.org"
+                        ]
+                    }
+                ],
+                "_filterId": 5
+            },
+            {
+                "name": "Programming",
+                "pinned": 1,
+                "conditions": [
+                    {
+                        "property": "url",
+                        "type": "string",
+                        "operator": "includes",
+                        "value": [
+                            "github.com",
+                            "leetcode.com",
+                            "stackoverflow.com",
+                            "freecodecamp.org",
+                            "educative.io",
+                            "hackerrank.com",
+                            "roadmap.sh"
+                        ]
+                    }
+                ],
+                "_filterId": 6
+            }
+        ]
+    }
+]
