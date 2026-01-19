@@ -279,6 +279,11 @@ function drawBarChart(canvas, chartData) {
   });
 }
 
+// Get favicon URL using MV3 compatible method
+function getFaviconUrl(url) {
+  return `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(url)}&size=16`;
+}
+
 // Render tabs list
 function renderTabsList(tabs) {
   const tabsList = document.getElementById('tabs-list');
@@ -293,7 +298,7 @@ function renderTabsList(tabs) {
 
   tabsList.innerHTML = sortedTabs.map(tab => `
     <div class="tab-item" data-url="${encodeURIComponent(tab.url)}">
-      <img class="tab-favicon" src="${tab.favIconUrl || 'chrome://favicon/' + tab.url}" alt="">
+      <img class="tab-favicon" src="${tab.favIconUrl || getFaviconUrl(tab.url)}" alt="">
       <div class="tab-info">
         <span class="tab-title">${escapeHtml(tab.title || 'Untitled')}</span>
         <span class="tab-url">${escapeHtml(tab.url)}</span>

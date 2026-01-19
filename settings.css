@@ -21,6 +21,7 @@
   --danger-color: #ef4444;
   --danger-hover: #dc2626;
   --success-color: #22c55e;
+  color-scheme: light;
 }
 
 body.dark-mode {
@@ -45,6 +46,7 @@ body.dark-mode {
   --danger-color: #f87171;
   --danger-hover: #ef4444;
   --success-color: #4ade80;
+  color-scheme: dark;
 }
 
 * {
@@ -318,13 +320,20 @@ body {
   border-radius: 6px;
   background-color: var(--bg-input);
   font-size: 13px;
-  color: var(--text-primary);
+  color: #1f2937;
   cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
   transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+body.dark-mode .select-dropdown {
+  color: #f5f5f5;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23a3a3a3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 .select-dropdown:hover {
@@ -335,6 +344,11 @@ body {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.select-dropdown option {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 /* Checkbox Group */

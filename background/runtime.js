@@ -512,10 +512,12 @@ export function registerRuntimeListeners(db, sessionManager) {
     // Sync on install/update (for extension updates)
     chrome.runtime.onInstalled.addListener(async (details) => {
         if (details.reason === "install") {
-            // Fresh install - session manager handles initial setup
+            // Fresh install - seed default filters and update badge
+            await db.seedDefaultFilters();
             updateBadge();
         } else if (details.reason === "update") {
-            // Extension updated - badge update
+            // Extension updated - seed any missing default filters and update badge
+            await db.seedDefaultFilters();
             updateBadge();
         }
     });

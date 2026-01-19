@@ -26,6 +26,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  color-scheme: light;
 }
 
 body.dark-mode {
@@ -55,6 +56,7 @@ body.dark-mode {
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
 }
 
 * {
@@ -354,6 +356,13 @@ body {
 .dropdown-group .dropdown-menu {
   right: 0;
   left: auto;
+}
+
+.view-label-icon,
+.filter-label-icon,
+.sort-label-icon {
+  margin-right: 6px;
+  font-size: 12px;
 }
 
 /* Sub Header */
@@ -2355,6 +2364,91 @@ body.dark-mode .context-menu-backdrop {
   color: var(--primary-hover);
 }
 
+/* Copy Submenu */
+.copy-submenu {
+  position: fixed;
+  z-index: 2001;
+  min-width: 160px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  padding: 4px 0;
+  animation: contextMenuFadeIn 0.15s ease-out;
+}
+
+.copy-submenu.hidden {
+  display: none;
+}
+
+.copy-submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  text-align: left;
+}
+
+.copy-submenu-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.copy-submenu-icon {
+  width: 14px;
+  color: var(--text-muted);
+}
+
+.copy-submenu-item:hover .copy-submenu-icon {
+  color: var(--text-tertiary);
+}
+
+/* Toast Notification */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 3000;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast.hidden {
+  display: none;
+}
+
+.toast-icon {
+  color: #22c55e;
+  font-size: 14px;
+}
+
+.toast-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
 /* Nickname Modal */
 .nickname-modal {
   width: 300px;
@@ -2646,5 +2740,10 @@ body.dark-mode .new-window-name-input:focus {
 
 .saved-windows-list.hidden,
 .saved-windows-empty.hidden {
+  display: none;
+}
+
+/* Hide window groups with no visible tabs */
+.window-group:not(:has(.tab-item)) {
   display: none;
 }

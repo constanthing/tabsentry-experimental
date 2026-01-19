@@ -325,12 +325,21 @@
           <i class="fa-regular fa-bookmark context-menu-icon"></i>
           <span>Bookmark</span>
         </button>
+        <button class="context-menu-item has-submenu" data-action="copy">
+          <i class="fa-regular fa-copy context-menu-icon"></i>
+          <span>Copy</span>
+          <i class="fa-solid fa-chevron-right context-menu-chevron"></i>
+        </button>
         <button class="context-menu-item has-submenu" data-action="move">
           <i class="fa-regular fa-up-down-left-right context-menu-icon"></i>
           <span>Move to Window</span>
           <i class="fa-solid fa-chevron-right context-menu-chevron"></i>
         </button>
         <div class="context-menu-divider"></div>
+        <button class="context-menu-item" data-action="remove-history">
+          <i class="fa-regular fa-clock-rotate-left context-menu-icon"></i>
+          <span>Remove from History</span>
+        </button>
         <button class="context-menu-item context-menu-item-danger" data-action="close">
           <i class="fa-regular fa-xmark context-menu-icon"></i>
           <span>Close Tab</span>
@@ -341,6 +350,24 @@
     <!-- Move Submenu -->
     <div id="move-submenu" class="move-submenu hidden">
       <!-- Dynamically populated with window list -->
+    </div>
+
+    <!-- Copy Submenu -->
+    <div id="copy-submenu" class="copy-submenu hidden">
+      <button class="copy-submenu-item" data-copy-action="url">
+        <i class="fa-regular fa-link copy-submenu-icon"></i>
+        <span>Copy URL</span>
+      </button>
+      <button class="copy-submenu-item" data-copy-action="title-url">
+        <i class="fa-regular fa-file-lines copy-submenu-icon"></i>
+        <span>Copy Title & URL</span>
+      </button>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+      <i class="fa-regular fa-check toast-icon"></i>
+      <span class="toast-message">Copied to clipboard</span>
     </div>
 
     <!-- Nickname Modal -->

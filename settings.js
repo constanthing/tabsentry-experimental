@@ -69,7 +69,7 @@ async function loadAllSettings() {
   for (const dropdown of dropdowns) {
     const settingName = dropdown.dataset.setting;
     const savedValue = await db.getSetting(settingName);
-    dropdown.value = savedValue !== null ? savedValue : defaultSettings[settingName];
+    dropdown.value = savedValue != null ? savedValue : defaultSettings[settingName];
   }
 
   // Load checkbox groups

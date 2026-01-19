@@ -4,30 +4,39 @@ const QUICK_INTERVAL_MINUTES = 10 / 60; // 10 seconds in minutes
 const NORMAL_TIME_INCREMENT_MS = 30 * 60 * 1000; // 30 minutes in milliseconds
 const QUICK_TIME_INCREMENT_MS = 60 * 60 * 1000; // 1 hour in milliseconds (for quick testing)
 
+// Module-level reference to the active AutoCloser instance for the alarm handler
+let activeAutoCloser = null;
+
+// Register alarm listener at module level (only once per service worker lifecycle)
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === AUTO_CLOSE_ALARM_NAME && activeAutoCloser) {
+        await activeAutoCloser.processAutoClose();
+    }
+});
+
 export class AutoCloser {
     constructor(db) {
         this.db = db;
         this.timeIncrementMs = NORMAL_TIME_INCREMENT_MS;
         this.isInitialized = false;
+        // Set this instance as the active one for the alarm handler
+        activeAutoCloser = this;
     }
 
     async initialize() {
+
         // Check if quick accumulate mode is enabled
         const quickAccumulate = await this.db.getSetting('quickAccumulate');
         const intervalMinutes = quickAccumulate ? QUICK_INTERVAL_MINUTES : NORMAL_INTERVAL_MINUTES;
         this.timeIncrementMs = quickAccumulate ? QUICK_TIME_INCREMENT_MS : NORMAL_TIME_INCREMENT_MS;
 
-        // Create the recurring alarm
-        await chrome.alarms.create(AUTO_CLOSE_ALARM_NAME, {
-            periodInMinutes: intervalMinutes
-        });
-
-        // Register the alarm listener
-        chrome.alarms.onAlarm.addListener(async (alarm) => {
-            if (alarm.name === AUTO_CLOSE_ALARM_NAME) {
-                await this.processAutoClose();
-            }
-        });
+        // Only create alarm if it doesn't exist (avoid resetting timer on service worker restart)
+        const existingAlarm = await chrome.alarms.get(AUTO_CLOSE_ALARM_NAME);
+        if (!existingAlarm) {
+            await chrome.alarms.create(AUTO_CLOSE_ALARM_NAME, {
+                periodInMinutes: intervalMinutes
+            });
+        }
 
         const intervalDisplay = quickAccumulate ? '10-second' : '30-minute';
         console.log(`[TabSentry] AutoCloser initialized with ${intervalDisplay} interval`);
@@ -55,13 +64,6 @@ export class AutoCloser {
     async processAutoClose() {
         console.log('[TabSentry] Running auto-close check...');
 
-        // Get settings
-        const autoCloseEnabled = await this.db.getSetting('autoCloseEnabled');
-        if (!autoCloseEnabled) {
-            console.log('[TabSentry] Auto-close is disabled, skipping');
-            return;
-        }
-
         // Check if quickAccumulate setting changed and update interval if needed
         const quickAccumulate = await this.db.getSetting('quickAccumulate');
         const expectedIncrement = quickAccumulate ? QUICK_TIME_INCREMENT_MS : NORMAL_TIME_INCREMENT_MS;
@@ -72,7 +74,7 @@ export class AutoCloser {
         // Get all non-orphan tabs
         const tabs = await this.db.getNonOrphanTabs();
 
-        // Add time increment to timeAccumulated for all tabs
+        // Always accumulate time on tabs (regardless of autoCloseEnabled)
         for (const tab of tabs) {
             const newTimeAccumulated = (tab.timeAccumulated || 0) + this.timeIncrementMs;
             await this.db.updateTab(tab.id, { timeAccumulated: newTimeAccumulated });
@@ -82,6 +84,13 @@ export class AutoCloser {
             ? `${Math.round(this.timeIncrementMs / 60000)} minutes`
             : `${Math.round(this.timeIncrementMs / 1000)} seconds`;
         console.log(`[TabSentry] Added ${incrementDisplay} to ${tabs.length} tabs`);
+
+        // Only close tabs if auto-close is enabled
+        const autoCloseEnabled = await this.db.getSetting('autoCloseEnabled');
+        if (!autoCloseEnabled) {
+            console.log('[TabSentry] Auto-close is disabled, skipping tab closure');
+            return;
+        }
 
         // Now check which tabs should be closed
         await this.evaluateTabsForClosure();

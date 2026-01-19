@@ -374,8 +374,9 @@ export default class DB {
     }
 
     async seedDefaultFilters() {
-        const existingFilters = await this.db.filters.count();
-        if (existingFilters > 0) return;
+        // Get existing filter names to avoid duplicates
+        const existingFilters = await this.db.filters.toArray();
+        const existingNames = new Set(existingFilters.map(f => f.name.toLowerCase()));
 
         const defaultFilters = [
             {
@@ -461,6 +462,10 @@ export default class DB {
 
         const now = Date.now();
         for (const filter of defaultFilters) {
+            // Skip if filter with same name already exists
+            if (existingNames.has(filter.name.toLowerCase())) {
+                continue;
+            }
             await this.db.filters.add({
                 ...filter,
                 createdAt: now,

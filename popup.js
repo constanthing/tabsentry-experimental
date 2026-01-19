@@ -323,7 +323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (searchInput) searchInput.focus();
   // Initialize filter label
   const filterLabel = document.getElementById('current-filter-label');
-  if (filterLabel) filterLabel.textContent = 'None';
+  if (filterLabel) filterLabel.innerHTML = '<i class="fa-regular fa-filter-slash filter-label-icon"></i>None';
   loadCurrentView();
 
   // Reload view when a window is removed (closed from outside popup)
@@ -600,16 +600,17 @@ function updateSortMenuSelection() {
     item.classList.toggle('active', item.dataset.sort === currentSort);
   });
 
-  // Update sort label
+  // Update sort label with icon
   const sortLabel = document.getElementById('current-sort-label');
   if (sortLabel) {
-    const sortNames = {
-      'recent': 'Recent',
-      'oldest': 'Oldest',
-      'az': 'A-Z',
-      'za': 'Z-A'
+    const sortConfig = {
+      'recent': { icon: 'fa-arrow-up', name: 'Recent' },
+      'oldest': { icon: 'fa-arrow-down', name: 'Oldest' },
+      'az': { icon: 'fa-arrow-down-a-z', name: 'A-Z' },
+      'za': { icon: 'fa-arrow-up-z-a', name: 'Z-A' }
     };
-    sortLabel.textContent = sortNames[currentSort] || 'Recent';
+    const config = sortConfig[currentSort] || sortConfig['recent'];
+    sortLabel.innerHTML = `<i class="fa-regular ${config.icon} sort-label-icon"></i>${config.name}`;
   }
 }
 
@@ -633,16 +634,17 @@ function updateViewMenuSelection() {
     item.classList.toggle('active', item.dataset.view === currentView);
   });
 
-  // Update view label
+  // Update view label with icon
   const viewLabel = document.getElementById('current-view-label');
   if (viewLabel) {
-    const viewNames = {
-      'all': 'All Tabs',
-      'windows': 'Windows',
-      'bookmarked': 'Bookmarked',
-      'nicknamed': 'Nicknamed'
+    const viewConfig = {
+      'all': { icon: 'fa-grid-2', name: 'All Tabs' },
+      'windows': { icon: 'fa-window-restore', name: 'Windows' },
+      'bookmarked': { icon: 'fa-bookmark', name: 'Bookmarked' },
+      'nicknamed': { icon: 'fa-at', name: 'Nicknamed' }
     };
-    viewLabel.textContent = viewNames[currentView] || 'All Tabs';
+    const config = viewConfig[currentView] || viewConfig['all'];
+    viewLabel.innerHTML = `<i class="fa-regular ${config.icon} view-label-icon"></i>${config.name}`;
   }
 }
 
@@ -694,7 +696,7 @@ function clearFilter() {
   const chatBtn = document.getElementById('chat-fab');
 
   currentFilter = null;
-  if (filterLabel) filterLabel.textContent = 'None';
+  if (filterLabel) filterLabel.innerHTML = '<i class="fa-regular fa-filter-slash filter-label-icon"></i>None';
   if (chatBtn) chatBtn.classList.remove('active');
 
   // Reset filter menu active state to "None"
@@ -736,7 +738,7 @@ function initFilterMenu() {
 
     if (item.dataset.filter === 'all') {
       currentFilter = null;
-      if (filterLabel) filterLabel.textContent = 'None';
+      if (filterLabel) filterLabel.innerHTML = '<i class="fa-regular fa-filter-slash filter-label-icon"></i>None';
       updateFilterBanner(null);
     } else if (filterId) {
       const response = await chrome.runtime.sendMessage({
@@ -745,7 +747,7 @@ function initFilterMenu() {
       });
       if (response.success) {
         currentFilter = response.filter;
-        if (filterLabel) filterLabel.textContent = response.filter.name;
+        if (filterLabel) filterLabel.innerHTML = `<i class="fa-regular fa-filter filter-label-icon"></i>${escapeHtml(response.filter.name)}`;
         updateFilterBanner(response.filter.name);
       }
     }
@@ -769,7 +771,7 @@ function initChatButton() {
       // Turn off - reset to no filter
       currentFilter = null;
       chatBtn.classList.remove('active');
-      if (filterLabel) filterLabel.textContent = 'None';
+      if (filterLabel) filterLabel.innerHTML = '<i class="fa-regular fa-filter-slash filter-label-icon"></i>None';
       updateFilterBanner(null);
 
       // Reset filter menu active state to "None"
@@ -782,7 +784,7 @@ function initChatButton() {
       // Turn on - apply chats filter
       currentFilter = CHATS_FILTER;
       chatBtn.classList.add('active');
-      if (filterLabel) filterLabel.textContent = 'Chats';
+      if (filterLabel) filterLabel.innerHTML = '<i class="fa-regular fa-comment-dots filter-label-icon"></i>Chats';
       updateFilterBanner('Chats');
 
       // Clear filter menu active state (chats filter is separate)
@@ -1159,6 +1161,11 @@ async function loadBookmarkedView() {
       );
     }
 
+    // Apply current filter
+    if (currentFilter) {
+      bookmarks = bookmarks.filter(bookmark => matchTabWithFilter(bookmark, currentFilter));
+    }
+
     // Sort bookmarks
     bookmarks = sortBookmarks(bookmarks, currentSort);
 
@@ -1301,6 +1308,11 @@ async function loadNicknamedView() {
         (item.nickname && item.nickname.toLowerCase().includes(query)) ||
         (item.url && item.url.toLowerCase().includes(query))
       );
+    }
+
+    // Apply current filter
+    if (currentFilter) {
+      filteredNicknames = filteredNicknames.filter(item => matchTabWithFilter(item, currentFilter));
     }
 
     // Sort nicknames
@@ -1537,6 +1549,8 @@ async function loadWindowsView() {
         const windowPinnedTabs = (window.tabs || []).filter(tab => tab.pinned);
         allPinnedTabs = allPinnedTabs.concat(windowPinnedTabs);
       });
+      // Apply filter to pinned tabs
+      allPinnedTabs = applyFilter(allPinnedTabs);
       // Sort pinned tabs
       allPinnedTabs = sortTabs(allPinnedTabs, currentSort);
     }
@@ -2010,7 +2024,12 @@ function createRecentlyVisitedItem(historyItem) {
 // Create the Recently Visited window group
 async function createRecentlyVisitedGroup(openWindows) {
   // Pass search query to history API for searching
-  const items = await getRecentlyVisitedItems(openWindows, 5, currentSearchQuery || '');
+  let items = await getRecentlyVisitedItems(openWindows, 5, currentSearchQuery || '');
+
+  // Apply filter to history items
+  if (currentFilter) {
+    items = items.filter(item => matchTabWithFilter(item, currentFilter));
+  }
 
   if (items.length === 0) {
     return null;
@@ -2297,12 +2316,13 @@ async function loadMoreHistory() {
     }
 
     // Filter out URLs that have already been displayed (open tabs + previous history)
-    // Also apply search filter to history items
+    // Also apply search filter and current filter to history items
     // Note: History is always shown in recency order (API default) since
     // sorting paginated results would break chronological pagination
     const filteredItems = historyItems
       .filter(item => !displayedUrls.has(item.url))
-      .filter(matchesSearchQuery);
+      .filter(matchesSearchQuery)
+      .filter(item => matchTabWithFilter(item, currentFilter));
 
     // If we got fewer items than requested, we've reached the end
     if (historyItems.length < HISTORY_PAGE_SIZE) {
@@ -2378,6 +2398,7 @@ function getFaviconFromUrl(url) {
 function initContextMenu() {
   const contextMenu = document.getElementById('tab-context-menu');
   const moveSubmenu = document.getElementById('move-submenu');
+  const copySubmenu = document.getElementById('copy-submenu');
   const backdrop = document.getElementById('context-menu-backdrop');
   if (!contextMenu) return;
 
@@ -2395,7 +2416,7 @@ function initContextMenu() {
 
   // Close context menu when clicking outside (fallback)
   document.addEventListener('click', (e) => {
-    if (!contextMenu.contains(e.target) && !moveSubmenu?.contains(e.target) && e.target !== backdrop) {
+    if (!contextMenu.contains(e.target) && !moveSubmenu?.contains(e.target) && !copySubmenu?.contains(e.target) && e.target !== backdrop) {
       hideContextMenu();
     }
   });
@@ -2428,6 +2449,23 @@ function initContextMenu() {
   if (moveItem) {
     moveItem.addEventListener('mouseenter', showMoveSubmenu);
   }
+
+  // Handle copy submenu hover
+  const copyItem = contextMenu.querySelector('[data-action="copy"]');
+  if (copyItem) {
+    copyItem.addEventListener('mouseenter', showCopySubmenu);
+  }
+
+  // Handle copy submenu item clicks
+  copySubmenu?.addEventListener('click', (e) => {
+    const item = e.target.closest('.copy-submenu-item');
+    if (!item) return;
+
+    const action = item.dataset.copyAction;
+    if (action) {
+      handleCopyAction(action);
+    }
+  });
 }
 
 function showContextMenu(x, y, tab) {
@@ -2507,6 +2545,7 @@ function showContextMenu(x, y, tab) {
 function hideContextMenu() {
   const contextMenu = document.getElementById('tab-context-menu');
   const moveSubmenu = document.getElementById('move-submenu');
+  const copySubmenu = document.getElementById('copy-submenu');
   const backdrop = document.getElementById('context-menu-backdrop');
 
   if (contextMenu) {
@@ -2514,6 +2553,9 @@ function hideContextMenu() {
   }
   if (moveSubmenu) {
     moveSubmenu.classList.add('hidden');
+  }
+  if (copySubmenu) {
+    copySubmenu.classList.add('hidden');
   }
   if (backdrop) {
     backdrop.classList.add('hidden');
@@ -2545,6 +2587,9 @@ async function handleContextMenuAction(action) {
     case 'close':
       await handleCloseAction(tabId);
       break;
+    case 'remove-history':
+      await handleRemoveFromHistoryAction(tabData);
+      break;
   }
 
   hideContextMenu();
@@ -2563,6 +2608,19 @@ async function handlePinAction(tabId, tabData) {
 async function handleNicknameAction(tabId, tabData) {
   const currentNickname = await getNickname(tabData.url);
   showNicknameModal(tabId, tabData, currentNickname);
+}
+
+async function handleRemoveFromHistoryAction(tabData) {
+  try {
+    if (!tabData.url) return;
+
+    // Remove the URL from Chrome's browsing history
+    await chrome.history.deleteUrl({ url: tabData.url });
+    console.log('[TabSentry] Removed from history:', tabData.url);
+    showToast('Removed from history');
+  } catch (error) {
+    console.error('[TabSentry] Failed to remove from history:', error);
+  }
 }
 
 // Saved Windows Modal
@@ -2858,6 +2916,12 @@ async function showMoveSubmenu(e) {
   const contextMenu = document.getElementById('tab-context-menu');
   if (!moveSubmenu || !contextMenu || !contextMenuTabData) return;
 
+  // Hide copy submenu if open
+  const copySubmenu = document.getElementById('copy-submenu');
+  if (copySubmenu) {
+    copySubmenu.classList.add('hidden');
+  }
+
   // Get all windows
   const windows = await chrome.windows.getAll({ populate: true });
 
@@ -2993,6 +3057,123 @@ async function handleMoveToWindow(windowId) {
 async function handleMoveToNewWindow() {
   if (!contextMenuTabId) return;
   await showNewWindowModal();
+}
+
+function showCopySubmenu(e) {
+  const copySubmenu = document.getElementById('copy-submenu');
+  const contextMenu = document.getElementById('tab-context-menu');
+  if (!copySubmenu || !contextMenu || !contextMenuTabData) return;
+
+  // Hide move submenu if open
+  const moveSubmenu = document.getElementById('move-submenu');
+  if (moveSubmenu) {
+    moveSubmenu.classList.add('hidden');
+  }
+
+  // Position submenu next to the copy button
+  const copyItem = contextMenu.querySelector('[data-action="copy"]');
+  const copyItemRect = copyItem.getBoundingClientRect();
+  const contextMenuRect = contextMenu.getBoundingClientRect();
+
+  copySubmenu.classList.remove('hidden');
+
+  const submenuRect = copySubmenu.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Try to position to the right of the context menu
+  let x = contextMenuRect.right + 4;
+  let y = copyItemRect.top;
+
+  // If it would overflow right, position to the left instead
+  if (x + submenuRect.width > viewportWidth) {
+    x = contextMenuRect.left - submenuRect.width - 4;
+  }
+
+  // If it would still overflow left, clamp to left edge
+  if (x < 10) {
+    x = 10;
+  }
+
+  // If it would overflow bottom, adjust
+  if (y + submenuRect.height > viewportHeight) {
+    y = viewportHeight - submenuRect.height - 10;
+  }
+
+  // If it would overflow top, clamp
+  if (y < 10) {
+    y = 10;
+  }
+
+  copySubmenu.style.left = `${x}px`;
+  copySubmenu.style.top = `${y}px`;
+
+  // Hide submenu when mouse leaves both menus
+  const hideSubmenuOnLeave = (e) => {
+    const target = e.relatedTarget;
+    if (!copySubmenu.contains(target) && !copyItem.contains(target)) {
+      copySubmenu.classList.add('hidden');
+    }
+  };
+
+  copySubmenu.addEventListener('mouseleave', hideSubmenuOnLeave);
+  copyItem.addEventListener('mouseleave', (e) => {
+    // Small delay to allow moving to submenu
+    setTimeout(() => {
+      if (!copySubmenu.matches(':hover')) {
+        copySubmenu.classList.add('hidden');
+      }
+    }, 100);
+  });
+}
+
+async function handleCopyAction(action) {
+  if (!contextMenuTabData) return;
+
+  let textToCopy = '';
+  let toastMessage = '';
+
+  switch (action) {
+    case 'url':
+      textToCopy = contextMenuTabData.url;
+      toastMessage = 'URL copied to clipboard';
+      break;
+    case 'title-url':
+      textToCopy = `${contextMenuTabData.title}\n${contextMenuTabData.url}`;
+      toastMessage = 'Title & URL copied to clipboard';
+      break;
+    default:
+      return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(textToCopy);
+    hideContextMenu();
+    showToast(toastMessage);
+  } catch (error) {
+    console.error('[TabSentry] Failed to copy to clipboard:', error);
+  }
+}
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  const toastMessage = toast?.querySelector('.toast-message');
+  if (!toast || !toastMessage) return;
+
+  toastMessage.textContent = message;
+  toast.classList.remove('hidden');
+
+  // Trigger reflow to restart animation
+  void toast.offsetWidth;
+  toast.classList.add('show');
+
+  // Auto-hide after 2 seconds
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 200);
+  }, 2000);
 }
 
 async function showNewWindowModal() {
